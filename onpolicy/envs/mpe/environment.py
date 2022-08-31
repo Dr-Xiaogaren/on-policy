@@ -3,7 +3,9 @@ from gym import spaces
 from gym.envs.registration import EnvSpec
 import numpy as np
 from .multi_discrete import MultiDiscrete
-
+import seaborn as sns
+import skimage
+import matplotlib
 # update bounds to center around agent
 cam_range = 2
 
@@ -431,3 +433,39 @@ class MultiAgentEnv(gym.Env):
                 for y in np.linspace(-range_max, +range_max, 5):
                     dx.append(np.array([x, y]))
         return dx
+
+
+class CatchingEnv(MultiAgentEnv):
+    def __init__(self, world, reset_callback=None, reward_callback=None, observation_callback=None, info_callback=None, done_callback=None, post_step_callback=None, shared_viewer=True, discrete_action=True):
+        super().__init__(world, reset_callback, reward_callback, observation_callback, info_callback, done_callback, post_step_callback, shared_viewer, discrete_action)
+
+    def render(self, save_path=None, mode='human', close=False):
+        grid = self.world.trav_map
+        m, n = grid.shape
+        colored = np.zeros((m,n,3))
+        pal = sns.color_palette('Paired')
+
+        current_palette = [(0.6, 0.6, 0.6)]
+        colored = self.fill_color(colored, grid, current_palette[0])
+
+        for agent in self.agents:
+            current_palette = pal[5] if agent.adversary == True else pal[3]
+            selem = skimage.morphology.disk(2)
+            agent_grid = np.zeros((m, n))
+            agent_grid[agent.grid_index[0], agent.grid_index[1]] = 1
+            agent_grid = 1 - skimage.morphology.binary_dilation(agent_grid, selem) != True
+            colored = self.fill_color(colored, agent_grid, current_palette)
+
+        colored = 1 - colored
+        colored *= 255
+        colored = colored.astype(np.uint8)
+
+        if save_path != None:
+            matplotlib.image.imsave(save_path+"/{}.png".format(str(self.world.world_step)), colored)
+
+    @staticmethod
+    def fill_color(colored, mat, color):
+        for i in range(3):
+            colored[:, :, 2 - i] *= (1 - mat)
+            colored[:, :, 2 - i] += (1 - color[i]) * mat
+        return colored

@@ -27,6 +27,10 @@ class ExpWorld(World):
         )
         # We resize the traversability map to the new size computed before
         trav_map = cv2.resize(trav_map, (trav_map_size, trav_map_size))
+        # We make the pixels of the image to be either 0 or 1
+        trav_map[trav_map < 255] = 0
+        trav_map[trav_map > 0] = 1
+        trav_map = 1-trav_map
         return trav_map
 
     
@@ -57,6 +61,7 @@ class ExpWorld(World):
 
     def update_agent_state(self, agent):
         super().update_agent_state(agent)
+        agent.grid_index = self.world_to_grid(agent.state.p_pos)
         agent.if_collide = self.check_obstacle_collision(agent)
         
     
@@ -82,6 +87,7 @@ class Scenario(BaseScenario):
             agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
             agent.max_speed = 1.0 if agent.adversary else 1.3
+            agent.grid_index = None
 
         # make initial conditions
         self.reset_world(world)
@@ -92,12 +98,14 @@ class Scenario(BaseScenario):
         world.assign_agent_colors()
         # random properties for landmarks
         world.assign_landmark_colors()
+        world.world_step = 0
         # random properties for landmarks
         # set random initial states
         for agent in world.agents:
             agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
+            agent.grid_index = self.world_to_grid(agent.state.p_pos, world)
         for i, landmark in enumerate(world.landmarks):
             if not landmark.boundary:
                 landmark.state.p_pos = 0.8 * np.random.uniform(-1, +1, world.dim_p)
@@ -206,7 +214,7 @@ class Scenario(BaseScenario):
 
 
 def main():
-    from onpolicy.envs.mpe.environment import MultiAgentEnv
+    from onpolicy.envs.mpe.environment import MultiAgentEnv, CatchingEnv
     from onpolicy.envs.mpe.scenarios import load
     from onpolicy.config import get_config
     parser = get_config()
@@ -217,14 +225,14 @@ def main():
     # create world
     world = scenario.make_world(args)
     # create multiagent environment
-    env = MultiAgentEnv(world, scenario.reset_world,
+    env = CatchingEnv(world, scenario.reset_world,
                         scenario.reward, scenario.observation, scenario.info)
     
     env.reset()
-    for i in range(100):
+    for i in range(20):
         action = [[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]]
         env.step(action)
-        # env.render(mode='human')
+        env.render(save_path="/workspace/tmp")
 
     print("done")
 
