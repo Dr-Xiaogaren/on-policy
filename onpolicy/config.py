@@ -284,4 +284,10 @@ def get_config():
     # pretrained parameters
     parser.add_argument("--model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
 
+    # environment
+    parser.add_argument("--maps_path", type=str, default="/workspace/floor_trav_0_v3.png", help="by default None. set the path to the gibson travasable map image file.")
+    parser.add_argument("--trav_map_default_resolution", type=float, default=0.01, help="by default 0.01, the default resolution of the travasable map")
+    parser.add_argument("--trav_map_resolution", type=float, default=0.05, help="by default 0.05, the actual resolution of the travasable map")
+    parser.add_argument("--num_good_agents", type=int, default=1, help="by default 1, the number of prey")
+    parser.add_argument("--num_adversaries", type=int, default=3, help="by default 3, the number of predators")
     return parser
