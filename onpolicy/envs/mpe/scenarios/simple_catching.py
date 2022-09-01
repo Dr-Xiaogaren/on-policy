@@ -1,4 +1,6 @@
+from re import S
 from tabnanny import check
+from tkinter import W
 import numpy as np
 from onpolicy.envs.mpe.core import World, Agent, Landmark
 from onpolicy.envs.mpe.scenario import BaseScenario
@@ -6,19 +8,22 @@ from PIL import Image
 import os
 import cv2
 import skimage.morphology
-
+import random
 class ExpWorld(World):
     def __init__(self, args):
         super().__init__()
         self.maps_path = args.maps_path
         self.trav_map_default_resolution = args.trav_map_default_resolution
         self.trav_map_resolution = args.trav_map_resolution
-        self.trav_map = self.load_trav_map()
+        self.trav_map = self.load_trav_map(self.maps_path)
+        self.min_initial_distance = args.min_initial_distance
+        self.max_initial_inner_distance = args.max_initial_inner_distance
+        self.max_initial_inter_distance = args.max_initial_inter_distance
     
-    def load_trav_map(self):
+    def load_trav_map(self, maps_path):
         #  Loads the traversability maps for all floors
         # Todo：modify the image file path 
-        trav_map = np.array(Image.open(self.maps_path))
+        trav_map = np.array(Image.open(maps_path))
         height, width = trav_map.shape
         assert height == width, "trav map is not a square"
         trav_map_original_size = height
@@ -49,13 +54,13 @@ class ExpWorld(World):
         obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
         entity_index = self.world_to_grid(entity.state.p_pos)
 
-        # check if colliding with obstacle
+        # check if colliding with obstacle, collide threthold is 1 grid
         if_collide = False
-        x1 = max(0, entity_index[0]-2)
-        x2 = min(obstacle_grid.shape[0]-1, entity_index[0]+2)
-        y1 = max(0, entity_index[1]-2)
-        y2 = min(obstacle_grid.shape[1]-1, entity_index[1]+2)
-        if np.sum(obstacle_grid[x1:x2,y1:y2])>10:
+        x1 = max(0, entity_index[0]-1)
+        x2 = min(obstacle_grid.shape[0]-1, entity_index[0]+1)
+        y1 = max(0, entity_index[1]-1)
+        y2 = min(obstacle_grid.shape[1]-1, entity_index[1]+1)
+        if np.sum(obstacle_grid[x1:x2,y1:y2])>2:
             if_collide = True
         return if_collide
 
@@ -63,7 +68,48 @@ class ExpWorld(World):
         super().update_agent_state(agent)
         agent.grid_index = self.world_to_grid(agent.state.p_pos)
         agent.if_collide = self.check_obstacle_collision(agent)
-        
+
+        # update state of the world
+    def step(self):
+        # zoe 20200420
+        self.world_step += 1
+        # set actions for scripted agents
+        for agent in self.scripted_agents:
+            agent.action = agent.action_callback(agent, self)
+        # gather forces applied to entities
+        p_force = [None] * len(self.entities)
+        # apply agent physical controls
+        p_force = self.apply_action_force(p_force)
+        # apply environment forces
+        p_force = self.apply_environment_force(p_force)
+        # integrate physical state
+        self.integrate_state(p_force)
+        # update agent state
+        for agent in self.agents:
+            self.update_agent_state(agent)
+        # calculate and store distances between all entities
+        if self.cache_dists:
+            self.calculate_distances()
+
+    def integrate_state(self, p_force):
+        for i, entity in enumerate(self.entities):
+            if not entity.movable:
+                continue
+            entity.state.p_vel = entity.state.p_vel * (1 - self.damping)
+            if (p_force[i] is not None):
+                entity.state.p_vel += (p_force[i] / entity.mass) * self.dt
+            if entity.max_speed is not None:
+                speed = np.sqrt(
+                    np.square(entity.state.p_vel[0]) + np.square(entity.state.p_vel[1]))
+                if speed > entity.max_speed:
+                    entity.state.p_vel = entity.state.p_vel / np.sqrt(np.square(entity.state.p_vel[0]) +
+                                                                      np.square(entity.state.p_vel[1])) * entity.max_speed
+            # if the action won't make agent get rid of collision, agent will not move anymore
+            old_entity_pos = np.copy(entity.state.p_pos)
+            entity.state.p_pos += entity.state.p_vel * self.dt
+            if entity.if_collide and self.check_obstacle_collision(entity):
+                entity.state.p_pos = old_entity_pos
+                entity.state.vel = 0
     
 
 
@@ -83,7 +129,7 @@ class Scenario(BaseScenario):
             agent.if_collide = False
             agent.silent = True
             agent.adversary = True if i < num_adversaries else False
-            agent.size = 0.2 if agent.adversary else 0.15
+            agent.size = 0.4 if agent.adversary else 0.3
             agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
             agent.max_speed = 1.0 if agent.adversary else 1.3
@@ -101,8 +147,61 @@ class Scenario(BaseScenario):
         world.world_step = 0
         # random properties for landmarks
         # set random initial states
+        initial_pos = []
+        travel_map = world.trav_map
+        travel_map_revolution = world.trav_map_resolution
+        # the passable index
+        index_travelable = np.where(travel_map == 0)
         for agent in world.agents:
-            agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
+            if agent.adversary:
+                # random choose
+                choose = random.randrange(0, index_travelable[0].shape[0])
+                # choose index
+                choose_index = np.array([index_travelable[0][choose],index_travelable[1][choose]])
+                choose_pos = self.grid_to_world(choose_index, world)
+
+                agent.state.p_pos = choose_pos
+                min_distance = min([np.linalg.norm(choose_pos-loc) for loc in initial_pos]) \
+                        if len(initial_pos) != 0 else world.min_initial_distance
+                max_distance = max([np.linalg.norm(choose_pos-loc) for loc in initial_pos[0:]]) \
+                        if len(initial_pos) != 0 else world.max_initial_inner_distance
+
+                while world.check_obstacle_collision(agent) or world.min_initial_distance > min_distance or world.max_initial_inner_distance < max_distance:
+                    choose = random.randrange(0, index_travelable[0].shape[0])
+                    choose_index = np.array([index_travelable[0][choose],index_travelable[1][choose]])
+                    choose_pos = self.grid_to_world(choose_index, world)
+                    min_distance = min([np.linalg.norm(choose_pos-loc) for loc in initial_pos]) \
+                        if len(initial_pos) != 0 else world.min_initial_distance
+                    max_distance = max([np.linalg.norm(choose_pos-loc) for loc in initial_pos[0:]]) \
+                        if len(initial_pos) != 0 else world.max_initial_inner_distance
+                    agent.state.p_pos = choose_pos
+
+                initial_pos.append(choose_pos)
+
+            else:
+                # random choose
+                choose = random.randrange(0, index_travelable[0].shape[0])
+                # choose index
+                choose_index = np.array([index_travelable[0][choose],index_travelable[1][choose]])
+                choose_pos = self.grid_to_world(choose_index, world)
+                agent.state.p_pos = choose_pos
+                min_distance = min([np.linalg.norm(choose_pos-loc) for loc in initial_pos]) \
+                        if len(initial_pos) != 0 else world.min_initial_distance
+                max_distance = max([np.linalg.norm(choose_pos-loc) for loc in initial_pos[0:]]) \
+                        if len(initial_pos) != 0 else world.max_initial_inter_distance
+                while world.check_obstacle_collision(agent) or world.min_initial_distance > min_distance or world.max_initial_inter_distance < max_distance:
+                    choose = random.randrange(0, index_travelable[0].shape[0])
+                    choose_index = np.array([index_travelable[0][choose],index_travelable[1][choose]])
+                    choose_pos = self.grid_to_world(choose_index, world)
+                    min_distance = min([np.linalg.norm(choose_pos-loc) for loc in initial_pos]) \
+                        if len(initial_pos) != 0 else world.min_initial_distance
+                    max_distance = max([np.linalg.norm(choose_pos-loc) for loc in initial_pos[0:]]) \
+                        if len(initial_pos) != 0 else world.max_initial_inter_distance
+                    agent.state.p_pos = choose_pos
+            
+
+
+            # other massage
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
             agent.grid_index = self.world_to_grid(agent.state.p_pos, world)
@@ -118,7 +217,15 @@ class Scenario(BaseScenario):
         x = int(trav_map_size//2 - p_pos[1]/world.trav_map_resolution)
         y = int(trav_map_size//2 + p_pos[0]/world.trav_map_resolution)
 
-        return np.array([x,y], dtype=int) 
+        return np.array([x, y], dtype=int) 
+
+    def grid_to_world(self, grid_index, world):
+        # Transform the index in the travesable map to the coordinate in the world
+        trav_map_size = world.trav_map.shape[0]
+        pos_0 = (grid_index[1] - trav_map_size//2)*world.trav_map_resolution
+        pos_1 = (trav_map_size//2 - grid_index[0])*world.trav_map_resolution
+        return np.array([pos_0, pos_1], dtype=float) 
+
 
     def benchmark_data(self, agent, world):
         # returns data for benchmarking purposes
@@ -164,18 +271,6 @@ class Scenario(BaseScenario):
             for a in adversaries:
                 if self.is_collision(a, agent):
                     rew -= 10
-
-        # agents are penalized for exiting the screen, so that they can be caught by the adversaries
-        def bound(x):
-            if x < 0.9:
-                return 0
-            if x < 1.0:
-                return (x - 0.9) * 10
-            return min(np.exp(2 * x - 2), 10)
-        for p in range(world.dim_p):
-            x = abs(agent.state.p_pos[p])
-            rew -= bound(x)
-
         return rew
 
     def adversary_reward(self, agent, world):
@@ -228,7 +323,7 @@ def main():
     env = CatchingEnv(world, scenario.reset_world,
                         scenario.reward, scenario.observation, scenario.info)
     
-    env.reset()
+    # env.reset()
     for i in range(20):
         action = [[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]]
         env.step(action)

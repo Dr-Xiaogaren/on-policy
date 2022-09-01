@@ -443,14 +443,14 @@ class CatchingEnv(MultiAgentEnv):
         grid = self.world.trav_map
         m, n = grid.shape
         colored = np.zeros((m,n,3))
-        pal = sns.color_palette('Paired')
+        pal = sns.color_palette('Paired', 16)
 
         current_palette = [(0.6, 0.6, 0.6)]
         colored = self.fill_color(colored, grid, current_palette[0])
 
         for agent in self.agents:
-            current_palette = pal[5] if agent.adversary == True else pal[3]
-            selem = skimage.morphology.disk(2)
+            current_palette = pal[9] if agent.adversary == True else pal[11]
+            selem = skimage.morphology.disk(4)
             agent_grid = np.zeros((m, n))
             agent_grid[agent.grid_index[0], agent.grid_index[1]] = 1
             agent_grid = 1 - skimage.morphology.binary_dilation(agent_grid, selem) != True
