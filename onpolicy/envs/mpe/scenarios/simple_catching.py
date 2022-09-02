@@ -9,6 +9,9 @@ import os
 import cv2
 import skimage.morphology
 import random
+import math
+import imageio
+import copy
 class ExpWorld(World):
     def __init__(self, args):
         super().__init__()
@@ -49,7 +52,7 @@ class ExpWorld(World):
     
     def check_obstacle_collision(self, entity):
         # inflate the obstacle
-        contact_margin = entity.size/2
+        contact_margin = entity.size
         selem = skimage.morphology.disk(int(contact_margin/self.trav_map_resolution))
         obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
         entity_index = self.world_to_grid(entity.state.p_pos)
@@ -78,7 +81,12 @@ class ExpWorld(World):
             agent.action = agent.action_callback(agent, self)
         # gather forces applied to entities
         p_force = [None] * len(self.entities)
+        rotation = [None] * len(self.entities)
         # apply agent physical controls
+        rotation = self.apply_rotation(rotation)
+        # Rotation is performed first   
+        self.integrate_rotation(rotation)
+
         p_force = self.apply_action_force(p_force)
         # apply environment forces
         p_force = self.apply_environment_force(p_force)
@@ -90,6 +98,41 @@ class ExpWorld(World):
         # calculate and store distances between all entities
         if self.cache_dists:
             self.calculate_distances()
+    
+    def apply_rotation(self, rotation):
+        # return the rotation angle
+        for i, agent in enumerate(self.agents):
+            if agent.movable:
+                # force = mass * a * action + n
+                if agent.action.u[1] > 0:
+                    rotation[i] = agent.rotation_stepsize
+                elif agent.action.u[1] < 0:
+                    rotation[i] = -agent.rotation_stepsize
+                elif agent.action.u[1] == 0:
+                    rotation[i] = 0
+    
+        return rotation
+    
+    def integrate_rotation(self, rotation):
+        # perform rotation
+        for i, agent in enumerate(self.agents):
+            if not agent.movable:
+                continue
+            agent.orientation = agent.orientation + rotation[i]
+            agent.orientation = agent.orientation % (2*np.math.pi)
+
+
+    def apply_action_force(self, p_force):
+        # set applied forces
+        for i, agent in enumerate(self.agents):
+            if agent.movable:
+                noise = np.random.randn(
+                    *agent.action.u.shape) * agent.u_noise if agent.u_noise else 0.0
+                # force = mass * a * action + n
+                orientation = np.array([math.cos(agent.orientation), math.sin(agent.orientation) ])
+                p_force[i] = (
+                    agent.mass * agent.accel if agent.accel is not None else agent.mass) * agent.action.u[0] * orientation + noise
+        return p_force
 
     def integrate_state(self, p_force):
         for i, entity in enumerate(self.entities):
@@ -129,11 +172,13 @@ class Scenario(BaseScenario):
             agent.if_collide = False
             agent.silent = True
             agent.adversary = True if i < num_adversaries else False
-            agent.size = 0.4 if agent.adversary else 0.3
+            agent.size = 0.2 if agent.adversary else 0.2
             agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
             agent.max_speed = 1.0 if agent.adversary else 1.3
             agent.grid_index = None
+            agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
+            agent.rotation_stepsize = math.pi/12
 
         # make initial conditions
         self.reset_world(world)
@@ -151,7 +196,9 @@ class Scenario(BaseScenario):
         travel_map = world.trav_map
         travel_map_revolution = world.trav_map_resolution
         # the passable index
-        index_travelable = np.where(travel_map == 0)
+        selem = skimage.morphology.disk(int(world.agents[0].size/travel_map_revolution))
+        obstacle_grid = skimage.morphology.binary_dilation(travel_map, selem)
+        index_travelable = np.where(obstacle_grid == 0)
         for agent in world.agents:
             if agent.adversary:
                 # random choose
@@ -198,8 +245,6 @@ class Scenario(BaseScenario):
                     max_distance = max([np.linalg.norm(choose_pos-loc) for loc in initial_pos[0:]]) \
                         if len(initial_pos) != 0 else world.max_initial_inter_distance
                     agent.state.p_pos = choose_pos
-            
-
 
             # other massage
             agent.state.p_vel = np.zeros(world.dim_p)
@@ -224,6 +269,7 @@ class Scenario(BaseScenario):
         trav_map_size = world.trav_map.shape[0]
         pos_0 = (grid_index[1] - trav_map_size//2)*world.trav_map_resolution
         pos_1 = (trav_map_size//2 - grid_index[0])*world.trav_map_resolution
+
         return np.array([pos_0, pos_1], dtype=float) 
 
 
@@ -324,10 +370,16 @@ def main():
                         scenario.reward, scenario.observation, scenario.info)
     
     # env.reset()
-    for i in range(20):
-        action = [[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0],[0,0,1,0,0]]
+    frames = []
+    for i in range(50):
+        one_action = [0,0,1,0,0]
+        action = []
+        for i in range(4):
+            # random.shuffle(one_action)
+            action.append(copy.copy(one_action))
         env.step(action)
-        env.render(save_path="/workspace/tmp")
+        frames.append(env.render())
+        imageio.mimsave("/workspace/tmp/test.gif", frames, 'GIF', duration=0.1)
 
     print("done")
 

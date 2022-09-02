@@ -462,10 +462,76 @@ class CatchingEnv(MultiAgentEnv):
 
         if save_path != None:
             matplotlib.image.imsave(save_path+"/{}.png".format(str(self.world.world_step)), colored)
+        
+        return colored
 
+
+    def _set_action(self, action, agent, action_space, time=None):
+        # now action is (linear velocity, angular velocity)
+        agent.action.u = np.zeros(self.world.dim_p)
+        agent.action.c = np.zeros(self.world.dim_c)
+        # process action
+        if isinstance(action_space, MultiDiscrete):
+            act = []
+            size = action_space.high - action_space.low + 1
+            index = 0
+            for s in size:
+                act.append(action[index:(index+s)])
+                index += s
+            action = act
+        else:
+            action = [action]
+        if agent.movable:
+            
+            if self.discrete_action_space:
+                agent.action.u[0] += action[0][1] - action[0][2]
+                agent.action.u[1] += action[0][3] - action[0][4]
+                assert sum(action[0]) == 1
+
+                if action[0][0] == 1:  # move forward
+                    agent.action.u[0] = 1
+                    agent.action.u[1] = 0
+                if action[0][1] == 1:  # turn left
+                    agent.action.u[0] = 0.8
+                    agent.action.u[1] = 1
+                if action[0][2] == 1:  #  turn right
+                    agent.action.u[0] = 0.8
+                    agent.action.u[1] = -1
+                if action[0][3] == 1:  # stop
+                    agent.action.u[0] = 0
+                    agent.action.u[1] = 0
+                if action[0][4] == 1:  # backforward
+                    agent.action.u[0] = -1
+                    agent.action.u[1] = 0
+                d = 5
+            sensitivity = 5.0
+            if agent.accel is not None:
+                sensitivity = agent.accel
+            agent.action.u *= sensitivity
+
+            if (not agent.silent) and (not isinstance(action_space, MultiDiscrete)):
+                action[0] = action[0][d:]
+            else:
+                action = action[1:]
+
+        if not agent.silent:
+            # communication action
+            if self.discrete_action_input:
+                agent.action.c = np.zeros(self.world.dim_c)
+                agent.action.c[action[0]] = 1.0
+            else:
+                agent.action.c = action[0]
+
+            action = action[1:]
+
+        # make sure we used all elements of action
+        assert len(action) == 0
+        
     @staticmethod
     def fill_color(colored, mat, color):
         for i in range(3):
             colored[:, :, 2 - i] *= (1 - mat)
             colored[:, :, 2 - i] += (1 - color[i]) * mat
         return colored
+
+    
