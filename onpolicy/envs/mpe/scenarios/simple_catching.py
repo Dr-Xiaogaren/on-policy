@@ -49,8 +49,9 @@ class ExpWorld(World):
         y = int(trav_map_size//2 + p_pos[0]/self.trav_map_resolution)
 
         return np.array([x,y], dtype=int) 
-    
+
     def check_obstacle_collision(self, entity):
+        # check if collide with obstacle
         # inflate the obstacle
         contact_margin = entity.size
         selem = skimage.morphology.disk(int(contact_margin/self.trav_map_resolution))
@@ -66,7 +67,37 @@ class ExpWorld(World):
         if np.sum(obstacle_grid[x1:x2,y1:y2])>2:
             if_collide = True
         return if_collide
+    
+    def check_if_dead(self, entity):
+        # check if agent is no way out
+        pos = np.copy(entity.state.p_pos)
+        shift_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
+                       math.pi, 7*math.pi/6, 3*math.pi/2, 11*math.pi/6]
+        shift_margin = 0.15
+        collide_num = 0
+        for shift in shift_degree:
+            entity.state.p_pos = pos +  np.array([math.sin(shift),math.cos(shift)])*shift_margin
+            if self.check_obstacle_collision(entity):
+                collide_num += 1
+                continue
+            else:
+                for a in self.agents:
+                    if self.check_agent_collision(a, entity) and a.name!=entity.name:
+                        collide_num += 1
+                        continue
+        entity.state.p_pos = pos
 
+        return True if collide_num == len(shift_degree) else False
+
+    
+
+    def check_agent_collision(self, agent1, agent2):
+        # check if collide witth agent
+        delta_pos = agent1.state.p_pos - agent2.state.p_pos
+        dist = np.sqrt(np.sum(np.square(delta_pos)))
+        dist_min = agent1.size + agent2.size
+        return True if dist < dist_min else False
+    
     def update_agent_state(self, agent):
         super().update_agent_state(agent)
         agent.grid_index = self.world_to_grid(agent.state.p_pos)
@@ -179,6 +210,7 @@ class Scenario(BaseScenario):
             agent.grid_index = None
             agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
             agent.rotation_stepsize = math.pi/12
+            agent.last_pos = None # pos in last time step
 
         # make initial conditions
         self.reset_world(world)
@@ -250,6 +282,8 @@ class Scenario(BaseScenario):
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
             agent.grid_index = self.world_to_grid(agent.state.p_pos, world)
+            # last pose
+            agent.last_pos = agent.state.p_pos
         for i, landmark in enumerate(world.landmarks):
             if not landmark.boundary:
                 landmark.state.p_pos = 0.8 * np.random.uniform(-1, +1, world.dim_p)
@@ -308,31 +342,42 @@ class Scenario(BaseScenario):
     def agent_reward(self, agent, world):
         # Agents are negatively rewarded if caught by adversaries
         rew = 0
-        shape = False #different from openai
         adversaries = self.adversaries(world)
-        if shape:  # reward can optionally be shaped (increased reward for increased distance from adversary)
-            for adv in adversaries:
-                rew += 0.1 * np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos)))
-        if agent.collide:
-            for a in adversaries:
-                if self.is_collision(a, agent):
-                    rew -= 10
+        # reward according to distance
+        for adv in adversaries:
+            diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos))) \
+                            - np.sqrt(np.sum(np.square(agent.last_pos - adv.last_pos)))
+            rew +=  diff_distance
+        # if catch
+        for a in adversaries:
+            if self.is_collision(a, agent):
+                rew -= 10
+
+        # if collide
+        if agent.if_collide:
+            rew += -5
+
         return rew
 
     def adversary_reward(self, agent, world):
         # Adversaries are rewarded for collisions with agents
         rew = 0
-        shape = False #different from openai
         agents = self.good_agents(world)
         adversaries = self.adversaries(world)
-        if shape:  # reward can optionally be shaped (decreased reward for increased distance from agents)
+        # reward according to distance
+        for ag in agents:
+            diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - ag.state.p_pos))) \
+                            - np.sqrt(np.sum(np.square(agent.last_pos - ag.last_pos)))
+            rew -=  diff_distance
+        # if catch
+        for ag in agents:
             for adv in adversaries:
-                rew -= 0.1 * min([np.sqrt(np.sum(np.square(a.state.p_pos - adv.state.p_pos))) for a in agents])
-        if agent.collide:
-            for ag in agents:
-                for adv in adversaries:
-                    if self.is_collision(ag, adv):
-                        rew += 10
+                if self.is_collision(ag, adv):
+                    rew += 10
+        # if collide
+        if agent.if_collide:
+            rew += -5
+
         return rew
 
     def observation(self, agent, world):
@@ -353,6 +398,22 @@ class Scenario(BaseScenario):
                 other_vel.append(other.state.p_vel)
         return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)
 
+    # change variables after reward function
+    def post_step(self, world):
+        for agent in world.agents:
+            agent.last_pos = agent.state.p_pos
+    
+
+    def if_done(self, agent, world):
+        agents = self.good_agents(world)
+        done = 0
+        for a in agents:
+            if world.check_if_dead(a):
+                done = 1
+
+        return done
+
+
 
 def main():
     from onpolicy.envs.mpe.environment import MultiAgentEnv, CatchingEnv
@@ -366,20 +427,23 @@ def main():
     # create world
     world = scenario.make_world(args)
     # create multiagent environment
-    env = CatchingEnv(world, scenario.reset_world,
-                        scenario.reward, scenario.observation, scenario.info)
+    env = CatchingEnv(world, reset_callback=scenario.reset_world, reward_callback=scenario.reward, 
+                        observation_callback= scenario.observation, info_callback=  scenario.info, 
+                        done_callback=scenario.if_done, post_step_callback=scenario.post_step)
     
     # env.reset()
     frames = []
     for i in range(50):
         one_action = [0,0,1,0,0]
         action = []
-        for i in range(4):
+        for j in range(4):
             # random.shuffle(one_action)
             action.append(copy.copy(one_action))
-        env.step(action)
-        frames.append(env.render())
-        imageio.mimsave("/workspace/tmp/test.gif", frames, 'GIF', duration=0.1)
+        obs_n, reward_n, done_n, info_n = env.step(action)
+        img = env.render()
+        frames.append(img)
+        cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
+        # imageio.mimsave("/workspace/tmp/test.gif", frames, 'GIF', duration=0.1)
 
     print("done")
 
