@@ -67,10 +67,6 @@ class MPERunner(Runner):
                 if self.env_name == "MPE":
                     for group_id in range(self.num_groups):
                         idv_rews = []
-                        for info in infos:
-                            if 'individual_reward' in infos[group_id].keys():
-                                idv_rews.append(infos[group_id]['individual_reward'])
-                        train_infos[group_id].update({'individual_rewards': np.mean(idv_rews)})
                         train_infos[group_id].update({"average_episode_rewards": np.mean(self.buffer[group_id].rewards) * self.episode_length})
                 self.log_train(train_infos, total_num_steps)
 
@@ -83,7 +79,7 @@ class MPERunner(Runner):
         obs = self.envs.reset()
 
         for group_id in range(self.num_groups):
-            group_obs = obs[:,:self.num_bads] if group_id == 0 else obs[:,self.num_bads:]
+            group_obs = np.array(obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(obs[:,self.num_bads:].tolist())
             num_inner_agent = self.num_bads if group_id == 0 else self.num_goods
             if self.use_centralized_V:
                 share_obs = group_obs.reshape(self.n_rollout_threads, -1)
@@ -107,7 +103,7 @@ class MPERunner(Runner):
 
         for group_id in range(self.num_groups):
             self.trainer[group_id].prep_rollout()
-            value, action, action_log_prob, rnn_state, rnn_state_critic \
+            value, action, action_log_prob, rnn_states, rnn_states_critic \
                 = self.trainer[group_id].policy.get_actions(np.concatenate(self.buffer[group_id].share_obs[step]),
                             np.concatenate(self.buffer[group_id].obs[step]),
                             np.concatenate(self.buffer[group_id].rnn_states[step]),
@@ -129,16 +125,16 @@ class MPERunner(Runner):
                     else:
                         action_env = np.concatenate((action_env, uc_action_env), axis=2)
             elif self.envs.action_space[self.num_bads-1+group_id].__class__.__name__ == 'Discrete':
-                action_env = np.squeeze(np.eye(self.envs.action_space[self.num_bads-1+group_id].n)[action], 2)
+                action_env = np.squeeze(np.eye(self.envs.action_space[self.num_bads-1+group_id].n)[actions], 2)
             else:
                 raise NotImplementedError
             
             all_values.append(values)
-            all_actions.append(action)
+            all_actions.append(actions)
             all_temp_actions_env.append(action_env)
-            all_action_log_probs.append(action_log_prob)
-            all_rnn_states.append(rnn_state)
-            all_rnn_states_critic.append(rnn_state_critic)
+            all_action_log_probs.append(action_log_probs)
+            all_rnn_states.append(rnn_states)
+            all_rnn_states_critic.append(rnn_states_critic)
 
         actions_env = np.concatenate(all_temp_actions_env, axis=1)
 
@@ -146,12 +142,12 @@ class MPERunner(Runner):
 
     def insert(self, data):
         obs, rewards, dones, infos, all_values, all_actions, all_action_log_probs, all_rnn_states, all_rnn_states_critic = data
-        for group_id in(self.num_groups):
+        for group_id in range(self.num_groups):
             # devide obs, reward, and dones into two groups
-            group_obs = obs[:,:self.num_bads] if group_id == 0 else obs[:,self.num_bads:]
+            group_obs = np.array(obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(obs[:,self.num_bads:].tolist())
             group_dones = dones[:,:self.num_bads] if group_id == 0 else dones[:,self.num_bads:]
             group_rewards = rewards[:,:self.num_bads] if group_id == 0 else rewards[:,self.num_bads:]
-            group_infos = infos[:,:self.num_bads] if group_id == 0 else infos[:,self.num_bads:]
+            # group_infos = infos[:,:self.num_bads] if group_id == 0 else infos[:,self.num_bads:]
 
             all_rnn_states[group_id][group_dones == True] = np.zeros(((group_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
             all_rnn_states_critic[group_id][group_dones == True] = np.zeros(((group_dones == True).sum(), *self.buffer[group_id].rnn_states_critic.shape[3:]), dtype=np.float32)
@@ -184,7 +180,7 @@ class MPERunner(Runner):
             all_eval_actions_env = []
             for group_id in range(self.num_groups):
                 self.trainer[group_id].prep_rollout()
-                group_obs = eval_obs[:,:self.num_bads] if group_id == 0 else eval_obs[:,self.num_bads:]
+                group_obs = np.array(obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(obs[:,self.num_bads:].tolist())
 
                 eval_action, eval_rnn_states = self.trainer[group_id].policy.act(np.concatenate(group_obs),
                                                 np.concatenate(all_eval_rnn_states[group_id]),

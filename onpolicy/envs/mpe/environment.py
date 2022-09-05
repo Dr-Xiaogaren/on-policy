@@ -438,6 +438,19 @@ class MultiAgentEnv(gym.Env):
 class CatchingEnv(MultiAgentEnv):
     def __init__(self, world, reset_callback=None, reward_callback=None, observation_callback=None, info_callback=None, done_callback=None, post_step_callback=None, shared_viewer=True, discrete_action=True):
         super().__init__(world, reset_callback, reward_callback, observation_callback, info_callback, done_callback, post_step_callback, shared_viewer, discrete_action)
+        # two groups
+        shair_bads_obs_dim = 0
+        shair_good_obs_dim = 0
+        for agent in self.agents:
+            obs_dim = len(observation_callback(agent, self.world))
+            if agent.adversary:
+                shair_bads_obs_dim += obs_dim
+            else:
+                shair_good_obs_dim += obs_dim
+        
+        self.share_observation_space = [spaces.Box(low=-np.inf, high=+np.inf, shape=(shair_bads_obs_dim,), dtype=np.float32), 
+                                              spaces.Box(low=-np.inf, high=+np.inf, shape=(shair_good_obs_dim,), dtype=np.float32)]
+        
 
     def render(self, save_path=None, mode='human', close=False):
         grid = self.world.trav_map

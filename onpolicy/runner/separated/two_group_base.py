@@ -79,8 +79,8 @@ class Runner(object):
         self.policy = []
         # 0 is bads , is goods
         for group_id in range(self.num_groups):
-            share_observation_space = self.envs.share_observation_space[self.num_bads-1+group_id] \
-            if self.use_centralized_V else self.envs.observation_space[self.num_bads-1+group_id]
+            share_observation_space = self.envs.share_observation_space[group_id] \
+                                      if self.use_centralized_V else self.envs.observation_space[self.num_bads-1+group_id]
             # policy network
             po = Policy(self.all_args,
                         self.envs.observation_space[self.num_bads-1+group_id],
@@ -101,7 +101,7 @@ class Runner(object):
 
         for group_id in range(self.num_groups):
             # buffer
-            share_observation_space = self.envs.share_observation_space[self.num_bads-1+group_id] \
+            share_observation_space = self.envs.share_observation_space[group_id] \
                                       if self.use_centralized_V else self.envs.observation_space[self.num_bads-1+group_id]
             num_inner_agent = self.num_bads if group_id == 0 else self.num_goods
             bu = SharedReplayBuffer(self.all_args,
