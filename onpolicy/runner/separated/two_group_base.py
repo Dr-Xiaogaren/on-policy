@@ -9,6 +9,7 @@ import torch
 from tensorboardX import SummaryWriter
 
 from onpolicy.utils.separated_buffer import SeparatedReplayBuffer
+from onpolicy.utils.shared_buffer import SharedReplayBuffer
 from onpolicy.utils.util import update_linear_schedule
 
 def _t2n(x):
@@ -98,13 +99,16 @@ class Runner(object):
             tr = TrainAlgo(self.all_args, self.policy[group_id], device = self.device)
             self.trainer.append(tr)
 
-        for agent_id in range(self.num_agents):
+        for group_id in range(self.num_groups):
             # buffer
-            share_observation_space = self.envs.share_observation_space[agent_id] if self.use_centralized_V else self.envs.observation_space[agent_id]
-            bu = SeparatedReplayBuffer(self.all_args,
-                                       self.envs.observation_space[agent_id],
-                                       share_observation_space,
-                                       self.envs.action_space[agent_id])
+            share_observation_space = self.envs.share_observation_space[self.num_bads-1+group_id] \
+                                      if self.use_centralized_V else self.envs.observation_space[self.num_bads-1+group_id]
+            num_inner_agent = self.num_bads if group_id == 0 else self.num_goods
+            bu = SharedReplayBuffer(self.all_args,
+                                    num_inner_agent,
+                                    self.envs.observation_space[self.num_bads-1+group_id],
+                                    share_observation_space,
+                                    self.envs.action_space[self.num_bads-1+group_id]) 
             self.buffer.append(bu)
 
 
@@ -123,17 +127,21 @@ class Runner(object):
     
     @torch.no_grad()
     def compute(self):
-        for agent_id in range(self.num_agents):
-            if agent_id < self.num_bads:
-                group_id = 0
-            else:
-                group_id = 1
+        for group_id in range(self.num_groups):
+
             self.trainer[group_id].prep_rollout()
-            next_value = self.trainer[group_id].policy.get_values(self.buffer[agent_id].share_obs[-1], 
-                                                                self.buffer[agent_id].rnn_states_critic[-1],
-                                                                self.buffer[agent_id].masks[-1])
-            next_value = _t2n(next_value)
-            self.buffer[agent_id].compute_returns(next_value, self.trainer[group_id].value_normalizer)
+            # next_value = self.trainer[group_id].policy.get_values(self.buffer[agent_id].share_obs[-1], 
+            #                                                     self.buffer[agent_id].rnn_states_critic[-1],
+            #                                                     self.buffer[agent_id].masks[-1])
+            # next_value = _t2n(next_value)
+            # self.buffer[agent_id].compute_returns(next_value, self.trainer[group_id].value_normalizer)
+
+            next_values = self.trainer[group_id].policy.get_values(np.concatenate(self.buffer[group_id].share_obs[-1]),
+                                                np.concatenate(self.buffer[group_id].rnn_states_critic[-1]),
+                                                np.concatenate(self.buffer[group_id].masks[-1]))
+            next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
+
+            self.buffer[group_id].compute_returns(next_values, self.trainer[group_id].value_normalizer)
 
     def train(self):
         train_infos = []

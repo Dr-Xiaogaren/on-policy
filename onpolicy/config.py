@@ -176,7 +176,7 @@ def get_config():
     parser.add_argument("--num_env_steps", type=int, default=10e6,
                         help='Number of environment steps to train (default: 10e6)')
     parser.add_argument("--user_name", type=str, default='marl',help="[for wandb usage], to specify user's name for simply collecting training data.")
-    parser.add_argument("--use_wandb", action='store_false', default=True, help="[for wandb usage], by default True, will log date to wandb server. or else will use tensorboard to log data.")
+    parser.add_argument("--use_wandb", action='store_false', default=False, help="[for wandb usage], by default True, will log date to wandb server. or else will use tensorboard to log data.")
 
     # env parameters
     parser.add_argument("--env_name", type=str, default='StarCraft2', help="specify the name of environment")
@@ -285,7 +285,7 @@ def get_config():
     parser.add_argument("--model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
 
     # environment
-    parser.add_argument("--maps_path", type=str, default="/workspace/scene/Booth_2.png", help="by default None. set the path to the gibson travasable map image file.")
+    parser.add_argument("--maps_path", type=str, default="/workspace/scene/test1.png", help="by default None. set the path to the gibson travasable map image file.")
     parser.add_argument("--trav_map_default_resolution", type=float, default=0.01, help="by default 0.01, the default resolution of the travasable map")
     parser.add_argument("--trav_map_resolution", type=float, default=0.05, help="by default 0.05, the actual resolution of the travasable map")
     parser.add_argument("--num_good_agents", type=int, default=1, help="by default 1, the number of prey")
