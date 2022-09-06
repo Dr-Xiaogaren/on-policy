@@ -196,9 +196,9 @@ def get_config():
                         help="Dimension of hidden layers for actor/critic networks")
     parser.add_argument("--use_stacked_frames", action='store_true',
                         default=False, help="Whether to use stacked_frames")
-    parser.add_argument("--hidden_size", type=int, default=64,
+    parser.add_argument("--hidden_size", type=int, default=128,
                         help="Dimension of hidden layers for actor/critic networks") 
-    parser.add_argument("--layer_N", type=int, default=1,
+    parser.add_argument("--layer_N", type=int, default=3,
                         help="Number of layers for actor/critic networks")
     parser.add_argument("--use_ReLU", action='store_false',
                         default=True, help="Whether to use ReLU")
@@ -285,13 +285,13 @@ def get_config():
     parser.add_argument("--model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
 
     # environment
-    parser.add_argument("--maps_path", type=str, default="/workspace/scene/test1.png", help="by default None. set the path to the gibson travasable map image file.")
+    parser.add_argument("--maps_path", type=str, default="/workspace/scene/test3.png", help="by default None. set the path to the gibson travasable map image file.")
     parser.add_argument("--trav_map_default_resolution", type=float, default=0.01, help="by default 0.01, the default resolution of the travasable map")
     parser.add_argument("--trav_map_resolution", type=float, default=0.05, help="by default 0.05, the actual resolution of the travasable map")
     parser.add_argument("--num_good_agents", type=int, default=1, help="by default 1, the number of prey")
     parser.add_argument("--num_adversaries", type=int, default=3, help="by default 3, the number of predators")
-    parser.add_argument("--max_initial_inner_distance", type=float, default=2, help = "by default 5, the max distance between adversaries")
-    parser.add_argument("--max_initial_inter_distance", type=float, default=20, help = "by default 20, the max distance between adversaries and good")
+    parser.add_argument("--max_initial_inner_distance", type=float, default=2, help = "by default 5, the max distance between adversaries and good")
+    parser.add_argument("--max_initial_inter_distance", type=float, default=5, help = "by default 20, the max distance between adversaries and good")
     parser.add_argument("--min_initial_distance", type=float, default=1, help = "by default 1, the min distance between all agents")
 
     return parser
