@@ -401,7 +401,7 @@ class Scenario(BaseScenario):
     # change variables after reward function
     def post_step(self, world):
         for agent in world.agents:
-            agent.last_pos = agent.state.p_pos
+            agent.last_pos = np.copy(agent.state.p_pos)
     
 
     def if_done(self, agent, world):
@@ -437,7 +437,7 @@ def main():
         one_action = [0,0,1,0,0]
         action = []
         for j in range(4):
-            # random.shuffle(one_action)
+            random.shuffle(one_action)
             action.append(copy.copy(one_action))
         obs_n, reward_n, done_n, info_n = env.step(action)
         img = env.render()

@@ -247,73 +247,93 @@ class MPERunner(Runner):
     def render(self):        
         all_frames = []
         for episode in range(self.all_args.render_episodes):
-            episode_rewards = []
-            obs = self.envs.reset()
+            # two group
+            eval_episode_rewards_good = []
+            eval_episode_rewards_bad = []
+            eval_obs = self.envs.reset()
             if self.all_args.save_gifs:
-                image = self.envs.render('rgb_array')[0][0]
+                image = self.envs.render('rgb_array')[0]
                 all_frames.append(image)
 
-            rnn_states = np.zeros((self.n_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
-            masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            all_eval_rnn_states = [np.zeros((self.n_rollout_threads, *self.buffer[0].rnn_states.shape[2:]), dtype=np.float32),
+                               np.zeros((self.n_rollout_threads, *self.buffer[1].rnn_states.shape[2:]), dtype=np.float32)]
+            all_eval_masks = [np.ones((self.n_rollout_threads, self.num_bads, 1), dtype=np.float32),
+                            np.ones((self.n_rollout_threads, self.num_goods, 1), dtype=np.float32)]
 
             for step in range(self.episode_length):
+                all_eval_actions_env = []
                 calc_start = time.time()
-                
-                temp_actions_env = []
-                for agent_id in range(self.num_agents):
-                    if not self.use_centralized_V:
-                        share_obs = np.array(list(obs[:, agent_id]))
-                    self.trainer[agent_id].prep_rollout()
-                    action, rnn_state = self.trainer[agent_id].policy.act(np.array(list(obs[:, agent_id])),
-                                                                        rnn_states[:, agent_id],
-                                                                        masks[:, agent_id],
-                                                                        deterministic=True)
+                for group_id in range(self.num_groups):
+                    self.trainer[group_id].prep_rollout()
+                    group_obs = np.array(eval_obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(eval_obs[:,self.num_bads:].tolist())
 
-                    action = action.detach().cpu().numpy()
-                    # rearrange action
-                    if self.envs.action_space[agent_id].__class__.__name__ == 'MultiDiscrete':
-                        for i in range(self.envs.action_space[agent_id].shape):
-                            uc_action_env = np.eye(self.envs.action_space[agent_id].high[i]+1)[action[:, i]]
+                    eval_action, eval_rnn_states = self.trainer[group_id].policy.act(np.concatenate(group_obs),
+                                                    np.concatenate(all_eval_rnn_states[group_id]),
+                                                    np.concatenate(all_eval_masks[group_id]),
+                                                    deterministic=True)
+                    
+                    eval_actions = np.array(np.split(_t2n(eval_action), self.n_rollout_threads))
+                    eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_rollout_threads))
+
+                    if self.envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
+                        for i in range(self.envs.action_space[0].shape):
+                            eval_uc_actions_env = np.eye(self.envs.action_space[0].high[i]+1)[eval_actions[:, :, i]]
                             if i == 0:
-                                action_env = uc_action_env
+                                eval_actions_env = eval_uc_actions_env
                             else:
-                                action_env = np.concatenate((action_env, uc_action_env), axis=1)
-                    elif self.envs.action_space[agent_id].__class__.__name__ == 'Discrete':
-                        action_env = np.squeeze(np.eye(self.envs.action_space[agent_id].n)[action], 1)
+                                eval_actions_env = np.concatenate((eval_actions_env, eval_uc_actions_env), axis=2)
+                    elif self.envs.action_space[0].__class__.__name__ == 'Discrete':
+                        eval_actions_env = np.squeeze(np.eye(self.envs.action_space[0].n)[eval_actions], 2)
                     else:
                         raise NotImplementedError
+                
+                    all_eval_actions_env.append(eval_actions_env)
+                
+                # gather  all groups' action into one array
+                actions_env = np.concatenate(all_eval_actions_env, axis=1)
+                # evaluate 
 
-                    temp_actions_env.append(action_env)
-                    rnn_states[:, agent_id] = _t2n(rnn_state)
-                   
-                # [envs, agents, dim]
-                actions_env = []
-                for i in range(self.n_rollout_threads):
-                    one_hot_action_env = []
-                    for temp_action_env in temp_actions_env:
-                        one_hot_action_env.append(temp_action_env[i])
-                    actions_env.append(one_hot_action_env)
+                eval_obs, eval_rewards, eval_dones, eval_infos = self.envs.step(actions_env)
 
-                # Obser reward and next obs
-                obs, rewards, dones, infos = self.envs.step(actions_env)
-                episode_rewards.append(rewards)
 
-                rnn_states[dones == True] = np.zeros(((dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
-                masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-                masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+                for group_id in range(self.num_groups):
+                    # split into two groups
+                    group_ev_rewards = eval_rewards[:,:self.num_bads] if group_id == 0 else eval_rewards[:,self.num_bads:]
+                    group_ev_dones = eval_dones[:,:self.num_bads] if group_id == 0 else eval_dones[:,self.num_bads:]
+
+                    all_eval_rnn_states[group_id][group_ev_dones == True] = np.zeros(((group_ev_dones == True).sum(), self.recurrent_N, self.hidden_size), dtype=np.float32)
+                    
+                    num_inner_agent = self.num_bads if group_id == 0 else self.num_goods
+                    masks = np.ones((self.n_rollout_threads, num_inner_agent, 1), dtype=np.float32)
+                    masks[group_ev_dones == True] = np.zeros(((group_ev_dones == True).sum(), 1), dtype=np.float32)
+                    all_eval_masks[group_id] = masks
+
+                    # save rewards
+                    if group_id == 0:
+                        eval_episode_rewards_bad.append(group_ev_rewards)
+                    else:
+                        eval_episode_rewards_good.append(group_ev_rewards)
 
                 if self.all_args.save_gifs:
-                    image = self.envs.render('rgb_array')[0][0]
+                    image = self.envs.render('rgb_array')[0]
                     all_frames.append(image)
                     calc_end = time.time()
                     elapsed = calc_end - calc_start
                     if elapsed < self.all_args.ifi:
                         time.sleep(self.all_args.ifi - elapsed)
 
-            episode_rewards = np.array(episode_rewards)
-            for agent_id in range(self.num_agents):
-                average_episode_rewards = np.mean(np.sum(episode_rewards[:, :, agent_id], axis=0))
-                print("eval average episode rewards of agent%i: " % agent_id + str(average_episode_rewards))
-        
+            eval_train_infos = []
+
+            eval_episode_rewards_bad = np.array(eval_episode_rewards_bad)
+            eval_episode_rewards_good = np.array(eval_episode_rewards_good)
+
+            eval_average_episode_rewards_bad = np.mean(np.sum(np.array(eval_episode_rewards_bad), axis=0))
+            eval_train_infos.append({'eval_average_episode_rewards': eval_average_episode_rewards_bad})
+            print("eval average episode rewards of group 0: "  + str(eval_average_episode_rewards_bad))
+
+            eval_average_episode_rewards_good = np.mean(np.sum(np.array(eval_episode_rewards_good), axis=0))
+            eval_train_infos.append({'eval_average_episode_rewards': eval_average_episode_rewards_good})
+            print("eval average episode rewards of group 1: "  + str(eval_average_episode_rewards_good))
+
         if self.all_args.save_gifs:
             imageio.mimsave(str(self.gif_dir) + '/render.gif', all_frames, duration=self.all_args.ifi)
