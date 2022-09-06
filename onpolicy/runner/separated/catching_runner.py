@@ -180,7 +180,7 @@ class MPERunner(Runner):
             all_eval_actions_env = []
             for group_id in range(self.num_groups):
                 self.trainer[group_id].prep_rollout()
-                group_obs = np.array(obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(obs[:,self.num_bads:].tolist())
+                group_obs = np.array(eval_obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(eval_obs[:,self.num_bads:].tolist())
 
                 eval_action, eval_rnn_states = self.trainer[group_id].policy.act(np.concatenate(group_obs),
                                                 np.concatenate(all_eval_rnn_states[group_id]),
