@@ -12,6 +12,8 @@ import random
 import math
 import imageio
 import copy
+
+from torch import arcsin
 class ExpWorld(World):
     def __init__(self, args):
         super().__init__()
@@ -384,8 +386,9 @@ class Scenario(BaseScenario):
     def observation(self, agent, world):
 
         agent_vel_norm = np.linalg.norm(agent.state.p_vel)
+        agent_vel_orien = math.asin(agent.state.p_vel[-1]/(agent_vel_norm+1e-6))
         # size + orientation
-        agent_vel = np.array([agent_vel_norm, agent.orientation])
+        agent_vel = np.array([agent_vel_norm, agent_vel_orien])
         # get positions of all entities in this agent's reference frame
         entity_pos = []
         for entity in world.landmarks:
@@ -402,9 +405,10 @@ class Scenario(BaseScenario):
             diff_orientation = other.orientation - agent.orientation
             other_pos.append(np.array([diff_distance, diff_orientation]))
             vel_norm = np.linalg.norm(other.state.p_vel)
-            other_vel.append(np.array([vel_norm, other.orientation]))
+            vel_orien = math.asin(agent.state.p_vel[-1]/(agent_vel_norm+1e-6))
+            other_vel.append(np.array([vel_norm, vel_orien]))
 
-        return np.concatenate([agent_vel] + [agent.state.p_pos] + entity_pos + other_pos + other_vel)
+        return np.concatenate([agent_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_pos + other_vel)
 
     # change variables after reward function
     def post_step(self, world):
