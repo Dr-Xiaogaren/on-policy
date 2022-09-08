@@ -4,7 +4,7 @@ scenario="simple_catching"  # simple_speaker_listener # simple_reference
 num_landmarks=0
 num_agents=4
 algo="rmappo"
-exp="check"
+exp="add_orien"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
