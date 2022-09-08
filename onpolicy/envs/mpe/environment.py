@@ -6,6 +6,7 @@ from .multi_discrete import MultiDiscrete
 import seaborn as sns
 import skimage
 import matplotlib
+import math
 # update bounds to center around agent
 cam_range = 2
 
@@ -468,6 +469,18 @@ class CatchingEnv(MultiAgentEnv):
             agent_grid[agent.grid_index[0], agent.grid_index[1]] = 1
             agent_grid = 1 - skimage.morphology.binary_dilation(agent_grid, selem) != True
             colored = self.fill_color(colored, agent_grid, current_palette)
+
+            # render orientation
+            agent_orien = np.zeros((m, n))
+            agent_orien[agent.grid_index[0], agent.grid_index[1]] = 1
+            for render_step in range(int(2*agent.size/self.world.trav_map_resolution)):
+                theta = agent.orientation
+                orien_loc = agent.state.p_pos + render_step*self.world.trav_map_resolution*np.array([math.cos(theta), math.sin(theta)])
+                orien_grid = self.world.world_to_grid(orien_loc)
+                agent_orien[orien_grid[0], orien_grid[1]] = 1
+            
+            colored = self.fill_color(colored, agent_orien, pal[0])
+            
 
         colored = 1 - colored
         colored *= 255
