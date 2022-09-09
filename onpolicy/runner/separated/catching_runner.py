@@ -274,6 +274,7 @@ class MPERunner(Runner):
                     
                     eval_actions = np.array(np.split(_t2n(eval_action), self.n_rollout_threads))
                     eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_rollout_threads))
+                    all_eval_rnn_states[group_id] = np.copy(eval_rnn_states)
 
                     if self.envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
                         for i in range(self.envs.action_space[0].shape):

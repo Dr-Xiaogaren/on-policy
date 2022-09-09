@@ -285,7 +285,10 @@ class Scenario(BaseScenario):
             agent.state.c = np.zeros(world.dim_c)
             agent.grid_index = self.world_to_grid(agent.state.p_pos, world)
             # last pose
-            agent.last_pos = agent.state.p_pos
+            agent.last_pos = np.copy(agent.state.p_pos)
+            agent.orientation = np.random.random()*math.pi*2
+            agent.if_collide = False
+
         for i, landmark in enumerate(world.landmarks):
             if not landmark.boundary:
                 landmark.state.p_pos = 0.8 * np.random.uniform(-1, +1, world.dim_p)
@@ -350,7 +353,7 @@ class Scenario(BaseScenario):
             diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos))) \
                             - np.sqrt(np.sum(np.square(agent.last_pos - adv.last_pos)))
             rew +=  diff_distance
-        rew = rew/len(adversaries)
+        rew = rew/len(adversaries)*50
         # if catch
         for a in adversaries:
             if self.is_collision(a, agent):
@@ -371,7 +374,7 @@ class Scenario(BaseScenario):
         for ag in agents:
             diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - ag.state.p_pos))) \
                             - np.sqrt(np.sum(np.square(agent.last_pos - ag.last_pos)))
-            rew -=  diff_distance
+            rew -=  diff_distance*50
         # if catch
         for ag in agents:
             for adv in adversaries:
@@ -442,20 +445,22 @@ def main():
     env = CatchingEnv(world, reset_callback=scenario.reset_world, reward_callback=scenario.reward, 
                         observation_callback= scenario.observation, info_callback=  scenario.info, 
                         done_callback=scenario.if_done, post_step_callback=scenario.post_step)
-    
-    # env.reset()
-    frames = []
-    for i in range(50):
-        one_action = [0,0,1,0,0]
-        action = []
-        for j in range(4):
-            random.shuffle(one_action)
-            action.append(copy.copy(one_action))
-        obs_n, reward_n, done_n, info_n = env.step(action)
-        img = env.render()
-        frames.append(img)
-        cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
-        # imageio.mimsave("/workspace/tmp/test.gif", frames, 'GIF', duration=0.1)
+    for ep in range(3):
+        env.reset()
+        frames = []
+        for i in range(50):
+            one_action = [0,0,1,0,0]
+            action = []
+            for j in range(4):
+                random.shuffle(one_action)
+                action.append(copy.copy(one_action))
+            obs_n, reward_n, done_n, info_n = env.step(action)
+            print("reward_n:",reward_n)
+            print("done:",done_n)
+            img = env.render()
+            frames.append(img)
+            # cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
+            imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.1)
 
     print("done")
 
