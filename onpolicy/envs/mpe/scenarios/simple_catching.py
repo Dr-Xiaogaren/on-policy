@@ -389,7 +389,7 @@ class Scenario(BaseScenario):
     def observation(self, agent, world):
 
         agent_vel_norm = np.linalg.norm(agent.state.p_vel)
-        agent_vel_orien = math.asin(agent.state.p_vel[-1]/(agent_vel_norm+1e-6))
+        agent_vel_orien = self.get_angle(agent.state.p_vel)
         # size + orientation
         agent_vel = np.array([agent_vel_norm, agent_vel_orien])
         # get positions of all entities in this agent's reference frame
@@ -408,7 +408,7 @@ class Scenario(BaseScenario):
             diff_orientation = other.orientation - agent.orientation
             other_pos.append(np.array([diff_distance, diff_orientation]))
             vel_norm = np.linalg.norm(other.state.p_vel)
-            vel_orien = math.asin(agent.state.p_vel[-1]/(agent_vel_norm+1e-6))
+            vel_orien = self.get_angle(other.state.p_vel)
             other_vel.append(np.array([vel_norm, vel_orien]))
 
         return np.concatenate([agent_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_pos + other_vel)
@@ -428,6 +428,17 @@ class Scenario(BaseScenario):
 
         return done
 
+    @staticmethod
+    def get_angle(v):
+        x1,y1 = 1, 0
+        x2,y2 = v[0], v[1]
+        dot = x1*x2+y1*y2
+        det = x1*y2-y1*x2
+        theta = np.arctan2(det, dot)
+        theta = theta if theta>0 else 2*np.pi+theta
+        return theta % (math.pi*2)
+        
+
 
 
 def main():
@@ -445,14 +456,14 @@ def main():
     env = CatchingEnv(world, reset_callback=scenario.reset_world, reward_callback=scenario.reward, 
                         observation_callback= scenario.observation, info_callback=  scenario.info, 
                         done_callback=scenario.if_done, post_step_callback=scenario.post_step)
-    for ep in range(3):
+    for ep in range(1):
         env.reset()
         frames = []
         for i in range(50):
             one_action = [0,0,1,0,0]
             action = []
             for j in range(4):
-                random.shuffle(one_action)
+                # random.shuffle(one_action)
                 action.append(copy.copy(one_action))
             obs_n, reward_n, done_n, info_n = env.step(action)
             print("reward_n:",reward_n)

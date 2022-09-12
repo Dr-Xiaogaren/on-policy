@@ -510,9 +510,6 @@ class CatchingEnv(MultiAgentEnv):
         if agent.movable:
             
             if self.discrete_action_space:
-                agent.action.u[0] += action[0][1] - action[0][2]
-                agent.action.u[1] += action[0][3] - action[0][4]
-                assert sum(action[0]) == 1
 
                 if action[0][0] == 1:  # move forward
                     agent.action.u[0] = 1
