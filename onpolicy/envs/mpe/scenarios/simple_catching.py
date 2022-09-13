@@ -353,7 +353,7 @@ class Scenario(BaseScenario):
             diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos))) \
                             - np.sqrt(np.sum(np.square(agent.last_pos - adv.last_pos)))
             rew +=  diff_distance
-        rew = rew/len(adversaries)*50
+        rew = rew/len(adversaries)
         # if catch
         for a in adversaries:
             if self.is_collision(a, agent):
@@ -374,7 +374,7 @@ class Scenario(BaseScenario):
         for ag in agents:
             diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - ag.state.p_pos))) \
                             - np.sqrt(np.sum(np.square(agent.last_pos - ag.last_pos)))
-            rew -=  diff_distance*50
+            rew -=  diff_distance
         # if catch
         for ag in agents:
             for adv in adversaries:
@@ -406,12 +406,12 @@ class Scenario(BaseScenario):
             comm.append(other.state.c)
             diff_distance = np.linalg.norm(other.state.p_pos - agent.state.p_pos)
             diff_orientation = other.orientation - agent.orientation
-            other_pos.append(np.array([diff_distance, diff_orientation]))
+            other_pos.append(other.state.p_pos - agent.state.p_pos)
             vel_norm = np.linalg.norm(other.state.p_vel)
             vel_orien = self.get_angle(other.state.p_vel)
-            other_vel.append(np.array([vel_norm, vel_orien]))
+            other_vel.append(other.state.p_vel)
 
-        return np.concatenate([agent_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_pos + other_vel)
+        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_pos + other_vel)
 
     # change variables after reward function
     def post_step(self, world):
