@@ -528,6 +528,11 @@ class CatchingEnv(MultiAgentEnv):
                     agent.action.u[1] = 0
                 d = 5
             sensitivity = 5.0
+            # mask prey's action
+            if agent.adversary == False:
+                agent.action.u[0] = 0
+                agent.action.u[1] = 0
+
             if agent.accel is not None:
                 sensitivity = agent.accel
             agent.action.u *= sensitivity
