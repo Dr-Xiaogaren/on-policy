@@ -194,6 +194,7 @@ class Scenario(BaseScenario):
         world = ExpWorld(args)
         # set any world properties first
         world.dim_c = 2
+        world.episode_length = args.episode_length
         num_good_agents = args.num_good_agents#1
         num_adversaries = args.num_adversaries#3
         num_agents = num_adversaries + num_good_agents
@@ -379,7 +380,10 @@ class Scenario(BaseScenario):
         for ag in agents:
             for adv in adversaries:
                 if self.is_collision(ag, adv):
-                    rew += 10
+                    if adv.name == agent.name:
+                        rew += 10
+                    else:
+                        rew += 1
         # if collide
         if agent.if_collide:
             rew += -5
@@ -421,11 +425,12 @@ class Scenario(BaseScenario):
 
     def if_done(self, agent, world):
         agents = self.good_agents(world)
-        done = 0
+        done = False
         for a in agents:
             if world.check_if_dead(a):
-                done = 1
-
+                done = True
+        if world.world_step == world.episode_length:
+            done = True
         return done
 
     @staticmethod

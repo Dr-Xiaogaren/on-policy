@@ -90,7 +90,7 @@ class Runner(object):
             self.policy.append(po)
 
         if self.model_dir is not None:
-            self.restore()
+            self.restore(self.all_args.load_model_ep)
 
         self.trainer = []
         self.buffer = []
@@ -153,18 +153,18 @@ class Runner(object):
 
         return train_infos
 
-    def save(self):
+    def save(self, episode):
         for group_id in range(self.num_groups):
             policy_actor = self.trainer[group_id].policy.actor
-            torch.save(policy_actor.state_dict(), str(self.save_dir) + "/actor_agent" + str(group_id) + ".pt")
+            torch.save(policy_actor.state_dict(), str(self.save_dir) + "/actor_group" + str(group_id) + "-ep" + str(episode) + ".pt")
             policy_critic = self.trainer[group_id].policy.critic
-            torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic_agent" + str(group_id) + ".pt")
+            torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic_group" + str(group_id) + "-ep" + str(episode)+ ".pt")
 
-    def restore(self):
+    def restore(self, episode):
         for group_id in range(self.num_groups):
-            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor_agent' + str(group_id) + '.pt')
+            policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor_group' + str(group_id) + "-ep" + str(episode) + '.pt')
             self.policy[group_id].actor.load_state_dict(policy_actor_state_dict)
-            policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic_agent' + str(group_id) + '.pt')
+            policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic_group' + str(group_id) + "-ep" + str(episode) + '.pt')
             self.policy[group_id].critic.load_state_dict(policy_critic_state_dict)
 
     def log_train(self, train_infos, total_num_steps): 

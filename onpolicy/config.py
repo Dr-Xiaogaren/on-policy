@@ -283,6 +283,7 @@ def get_config():
 
     # pretrained parameters
     parser.add_argument("--model_dir", type=str, default=None, help="by default None. set the path to pretrained model.")
+    parser.add_argument("--load_model_ep", type=int, default=2360, help="by default None. the trained episode of pretrained model.")
 
     # environment
     parser.add_argument("--maps_path", type=str, default="/workspace/scene/test3.png", help="by default None. set the path to the gibson travasable map image file.")
