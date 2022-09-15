@@ -74,8 +74,8 @@ class ExpWorld(World):
         # check if agent is no way out
         pos = np.copy(entity.state.p_pos)
         shift_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
-                       math.pi, 7*math.pi/6, 3*math.pi/2, 11*math.pi/6]
-        shift_margin = 0.15
+                       math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
+        shift_margin = 0.3
         collide_num = 0
         for shift in shift_degree:
             entity.state.p_pos = pos +  np.array([math.sin(shift),math.cos(shift)])*shift_margin
@@ -209,7 +209,7 @@ class Scenario(BaseScenario):
             agent.size = 0.2 if agent.adversary else 0.2
             agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
-            agent.max_speed = 1.0 if agent.adversary else 0.1
+            agent.max_speed = 1.0 if agent.adversary else 0.001
             agent.grid_index = None
             agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
             agent.rotation_stepsize = math.pi/12
@@ -475,7 +475,9 @@ def main():
             print("done:",done_n)
             img = env.render()
             frames.append(img)
-            # cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
+            for rw, ag in zip(reward_n,env.agents):
+                cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
+            cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
             imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.1)
 
     print("done")

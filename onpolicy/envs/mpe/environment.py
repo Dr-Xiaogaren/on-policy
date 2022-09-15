@@ -7,6 +7,7 @@ import seaborn as sns
 import skimage
 import matplotlib
 import math
+import cv2
 # update bounds to center around agent
 cam_range = 2
 
@@ -58,6 +59,7 @@ class MultiAgentEnv(gym.Env):
         self.action_space = []
         self.observation_space = []
         self.share_observation_space = []
+        self.render_rw = []
         share_obs_dim = 0
         for agent in self.agents:
             total_action_space = []
@@ -147,11 +149,14 @@ class MultiAgentEnv(gym.Env):
 
         if self.post_step_callback is not None:
             self.post_step_callback(self.world)
+        # for render
+        self.render_rw = reward_n
 
         return obs_n, reward_n, done_n, info_n
 
     def reset(self):
         self.current_step = 0
+        self.render_rw = []
         # reset world
         self.reset_callback(self.world)
         # reset renderer
@@ -488,6 +493,9 @@ class CatchingEnv(MultiAgentEnv):
 
         if save_path != None:
             matplotlib.image.imsave(save_path+"/{}.png".format(str(self.world.world_step)), colored)
+        
+        for ag, rw in zip(self.agents, self.render_rw):
+                cv2.putText(colored, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
         
         return colored
 
