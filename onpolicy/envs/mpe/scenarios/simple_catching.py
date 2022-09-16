@@ -368,6 +368,8 @@ class Scenario(BaseScenario):
         if agent.if_collide:
             rew += -5
 
+        # punish every step
+        rew += -0.2
         return rew
 
     def adversary_reward(self, agent, world):
@@ -392,6 +394,9 @@ class Scenario(BaseScenario):
         if agent.if_collide:
             rew += -5
 
+        # punish every step
+        rew += -0.2
+        
         return rew
 
     def observation(self, agent, world):
