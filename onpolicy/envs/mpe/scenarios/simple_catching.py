@@ -104,6 +104,8 @@ class ExpWorld(World):
         super().update_agent_state(agent)
         agent.grid_index = self.world_to_grid(agent.state.p_pos)
         agent.if_collide = self.check_obstacle_collision(agent)
+        if not agent.adversary:
+            agent.if_dead = self.check_if_dead(agent)
 
         # update state of the world
     def step(self):
@@ -209,11 +211,12 @@ class Scenario(BaseScenario):
             agent.size = 0.2 if agent.adversary else 0.2
             agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
-            agent.max_speed = 1.0 if agent.adversary else 0.001
+            agent.max_speed = 1.0 if agent.adversary else 1.0
             agent.grid_index = None
             agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
             agent.rotation_stepsize = math.pi/12
             agent.last_pos = None # pos in last time step
+            agent.if_dead = False
 
         # make initial conditions
         self.reset_world(world)
@@ -289,6 +292,7 @@ class Scenario(BaseScenario):
             agent.last_pos = np.copy(agent.state.p_pos)
             agent.orientation = np.random.random()*math.pi*2
             agent.if_collide = False
+            agent.if_dead = False
 
         for i, landmark in enumerate(world.landmarks):
             if not landmark.boundary:
@@ -382,7 +386,7 @@ class Scenario(BaseScenario):
                 if self.is_collision(ag, adv):
                     if adv.name == agent.name:
                         rew += 10
-            if world.check_if_dead(ag):
+            if ag.if_dead:
                 rew += 10
         # if collide
         if agent.if_collide:
@@ -427,7 +431,7 @@ class Scenario(BaseScenario):
         agents = self.good_agents(world)
         done = False
         for a in agents:
-            if world.check_if_dead(a):
+            if a.if_dead:
                 done = True
         if world.world_step == world.episode_length:
             done = True
@@ -475,10 +479,10 @@ def main():
             print("done:",done_n)
             img = env.render()
             frames.append(img)
-            for rw, ag in zip(reward_n,env.agents):
-                cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
-            cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
-            imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.1)
+            # for rw, ag in zip(reward_n,env.agents):
+            #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
+            # cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
+            # imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.1)
 
     print("done")
 
