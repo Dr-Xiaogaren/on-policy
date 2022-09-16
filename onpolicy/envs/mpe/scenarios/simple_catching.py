@@ -86,7 +86,7 @@ class ExpWorld(World):
                 for a in self.agents:
                     if self.check_agent_collision(a, entity) and a.name!=entity.name:
                         collide_num += 1
-                        continue
+                        break
         entity.state.p_pos = pos
 
         return True if collide_num == len(shift_degree) else False
