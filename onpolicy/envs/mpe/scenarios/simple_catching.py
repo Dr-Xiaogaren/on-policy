@@ -353,7 +353,7 @@ class Scenario(BaseScenario):
         for adv in adversaries:
             diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos))) \
                             - np.sqrt(np.sum(np.square(agent.last_pos - adv.last_pos)))
-            rew +=  diff_distance
+            rew +=  diff_distance*10
         rew = rew/len(adversaries)
         # if catch
         for a in adversaries:
@@ -375,15 +375,15 @@ class Scenario(BaseScenario):
         for ag in agents:
             diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - ag.state.p_pos))) \
                             - np.sqrt(np.sum(np.square(agent.last_pos - ag.last_pos)))
-            rew -=  diff_distance
+            rew -=  diff_distance*10
         # if catch
         for ag in agents:
             for adv in adversaries:
                 if self.is_collision(ag, adv):
                     if adv.name == agent.name:
                         rew += 10
-                    else:
-                        rew += 1
+            if world.check_if_dead(ag):
+                rew += 10
         # if collide
         if agent.if_collide:
             rew += -5
