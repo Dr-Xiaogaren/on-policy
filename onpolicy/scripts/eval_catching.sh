@@ -6,7 +6,7 @@ num_agents=4
 algo="rmappo"
 exp="evaluate"
 seed_max=1
-model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching/rmappo/check_TargetSpeed1.0_new_reward_addpunish/wandb/run-20220916_160326-gqbvv9b0/files"
+model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching/rmappo/EnvV0.1_TargetSpeed0.0_NewReward_AddPunish_ForExclusive/wandb/run-20220916_212139-37z9din6/files"
 load_model_ep=2400
 
 

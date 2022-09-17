@@ -211,7 +211,7 @@ class Scenario(BaseScenario):
             agent.size = 0.2 if agent.adversary else 0.2
             agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
-            agent.max_speed = 1.0 if agent.adversary else 1.0
+            agent.max_speed = 1.0 if agent.adversary else 0.001
             agent.grid_index = None
             agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
             agent.rotation_stepsize = math.pi/12
@@ -388,6 +388,9 @@ class Scenario(BaseScenario):
                 if self.is_collision(ag, adv):
                     if adv.name == agent.name:
                         rew += 10
+                    else:
+                        rew += -5
+
             if ag.if_dead:
                 rew += 10
         # if collide
