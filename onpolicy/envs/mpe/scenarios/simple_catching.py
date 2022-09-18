@@ -389,7 +389,7 @@ class Scenario(BaseScenario):
                     if adv.name == agent.name:
                         rew += 10
                     else:
-                        rew += -5
+                        rew += -5 * np.linalg.norm(agent.state.p_pos - ag.state.p_pos)/world.max_initial_inter_distance
 
             if ag.if_dead:
                 rew += 10

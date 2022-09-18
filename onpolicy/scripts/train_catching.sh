@@ -4,7 +4,7 @@ scenario="simple_catching"  # simple_speaker_listener # simple_reference
 num_landmarks=0
 num_agents=4
 algo="rmappo"
-exp="EnvV0.1_TargetSpeed0.0_NewReward_AddPunish_ForExclusive"
+exp="EnvV0.1_TargetSpeed0.0_NewReward_AddPunish_ForExclusive_Linear"
 seed_max=1
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
