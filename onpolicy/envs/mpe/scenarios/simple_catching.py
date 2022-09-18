@@ -24,6 +24,7 @@ class ExpWorld(World):
         self.min_initial_distance = args.min_initial_distance
         self.max_initial_inner_distance = args.max_initial_inner_distance
         self.max_initial_inter_distance = args.max_initial_inter_distance
+        self.rw_scale = args.rw_scale
     
     def load_trav_map(self, maps_path):
         #  Loads the traversability maps for all floors
@@ -211,7 +212,7 @@ class Scenario(BaseScenario):
             agent.size = 0.2 if agent.adversary else 0.2
             agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
-            agent.max_speed = 1.0 if agent.adversary else 1.0
+            agent.max_speed = 1.0 if agent.adversary else 0.001
             agent.grid_index = None
             agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
             agent.rotation_stepsize = math.pi/12
@@ -362,7 +363,7 @@ class Scenario(BaseScenario):
         # if catch
         for a in adversaries:
             if self.is_collision(a, agent):
-                rew -= 10
+                rew -= 10*world.rw_scale
 
         # if collide
         if agent.if_collide:
@@ -387,7 +388,7 @@ class Scenario(BaseScenario):
             for adv in adversaries:
                 if self.is_collision(ag, adv):
                     if adv.name == agent.name:
-                        rew += 10
+                        rew += 10*world.rw_scale
             if ag.if_dead:
                 rew += 10
         # if collide

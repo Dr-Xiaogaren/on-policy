@@ -6,8 +6,8 @@ num_agents=4
 algo="rmappo"
 exp="evaluate"
 seed_max=1
-model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching/rmappo/check_TargetSpeed1.0_new_reward_addpunish/wandb/run-20220916_160326-gqbvv9b0/files"
-load_model_ep=2400
+model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching/rmappo/check_TargetSpeed0.0_new_reward_addpunish_rwscale0.5/wandb/run-20220918_084250-1cakl8oc/files"
+load_model_ep=3500
 
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"

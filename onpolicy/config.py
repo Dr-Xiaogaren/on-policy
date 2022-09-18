@@ -295,4 +295,7 @@ def get_config():
     parser.add_argument("--max_initial_inter_distance", type=float, default=5, help = "by default 20, the max distance between adversaries and good")
     parser.add_argument("--min_initial_distance", type=float, default=1, help = "by default 1, the min distance between all agents")
 
+    # debug
+    parser.add_argument("--rw_scale", type=float, default=1, help = "by default 1, reward sacle")
+
     return parser
