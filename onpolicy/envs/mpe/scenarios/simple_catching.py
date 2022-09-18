@@ -24,6 +24,7 @@ class ExpWorld(World):
         self.min_initial_distance = args.min_initial_distance
         self.max_initial_inner_distance = args.max_initial_inner_distance
         self.max_initial_inter_distance = args.max_initial_inter_distance
+        self.linear_punish_scale = args.linear_punish_scale
     
     def load_trav_map(self, maps_path):
         #  Loads the traversability maps for all floors
@@ -389,7 +390,7 @@ class Scenario(BaseScenario):
                     if adv.name == agent.name:
                         rew += 10
                     else:
-                        rew += -5 * np.linalg.norm(agent.state.p_pos - ag.state.p_pos)/world.max_initial_inter_distance
+                        rew += -world.linear_punish_scale * np.linalg.norm(agent.state.p_pos - ag.state.p_pos)/world.max_initial_inter_distance
 
             if ag.if_dead:
                 rew += 10
