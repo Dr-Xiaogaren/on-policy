@@ -296,6 +296,6 @@ def get_config():
     parser.add_argument("--min_initial_distance", type=float, default=1, help = "by default 1, the min distance between all agents")
 
     # debug
-    parser.add_argument("--rw_scale", type=float, default=1, help = "by default 1, reward sacle")
+    parser.add_argument("--rw_scale", type=float, default=0.5, help = "by default 0.5, reward sacle")
 
     return parser
