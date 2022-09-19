@@ -58,6 +58,10 @@ def parse_args(args, parser):
 
     all_args = parser.parse_known_args(args)[0]
 
+    all_args.trav_map_size = int(
+            all_args.max_map_size * all_args.trav_map_default_resolution / all_args.trav_map_resolution
+        )
+
     return all_args
 
 

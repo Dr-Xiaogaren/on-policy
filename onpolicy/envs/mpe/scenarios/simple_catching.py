@@ -1,3 +1,4 @@
+from multiprocessing import current_process
 from re import S
 from tabnanny import check
 from tkinter import W
@@ -20,17 +21,33 @@ class ExpWorld(World):
         self.maps_path = args.maps_path
         self.trav_map_default_resolution = args.trav_map_default_resolution
         self.trav_map_resolution = args.trav_map_resolution
+        self.max_trav_map_size = args.max_map_size
         self.trav_map = self.load_trav_map(self.maps_path)
         self.min_initial_distance = args.min_initial_distance
         self.max_initial_inner_distance = args.max_initial_inner_distance
         self.max_initial_inter_distance = args.max_initial_inter_distance
+        
     
     def load_trav_map(self, maps_path):
         #  Loads the traversability maps for all floors
         # Todo：modify the image file path 
-        trav_map = np.array(Image.open(maps_path))
+        image_list = []
+        for root, dirs, files in os.walk(maps_path):
+            if files:
+                for name in files:
+                    img_path = os.path.join(root, name)
+                    image_list.append(img_path)
+        image_path = random.choice(image_list)
+        trav_map = np.array(Image.open(image_path))
         height, width = trav_map.shape
         assert height == width, "trav map is not a square"
+        # pad the map to a fix size
+        if height < self.max_trav_map_size:
+            background = np.zeros((self.max_trav_map_size, self.max_trav_map_size))
+            background[0:height,0:width] = trav_map
+            trav_map = background
+            height = self.max_trav_map_size
+
         trav_map_original_size = height
         trav_map_size = int(
             trav_map_original_size * self.trav_map_default_resolution / self.trav_map_resolution
@@ -231,6 +248,7 @@ class Scenario(BaseScenario):
         # random properties for landmarks
         # set random initial states
         initial_pos = []
+        world.trav_map = world.load_trav_map(world.maps_path)
         travel_map = world.trav_map
         travel_map_revolution = world.trav_map_resolution
         # the passable index
@@ -362,7 +380,7 @@ class Scenario(BaseScenario):
         # if catch
         for a in adversaries:
             if self.is_collision(a, agent):
-                rew -= 10
+                rew -= 5
 
         # if collide
         if agent.if_collide:
@@ -387,7 +405,7 @@ class Scenario(BaseScenario):
             for adv in adversaries:
                 if self.is_collision(ag, adv):
                     if adv.name == agent.name:
-                        rew += 10
+                        rew += 5
             if ag.if_dead:
                 rew += 10
         # if collide
@@ -410,21 +428,37 @@ class Scenario(BaseScenario):
         for entity in world.landmarks:
             if not entity.boundary:
                 entity_pos.append(entity.state.p_pos - agent.state.p_pos)
-        # communication of all other agents
-        comm = []
+
+        # the image-like observation
+        num_channel = 1 + len(world.agents)  # obstacle map and all robots' location  
+        obs2 = np.zeros((num_channel,*world.trav_map.shape))
+        # first channel is obstacle
+        obs2[0] = world.trav_map
+        # second channel is myself
+        obs2[1][agent.grid_index[0]][agent.grid_index[1]] = 1
+        
+        # all other agents
         other_pos = []
         other_vel = []
+        other_orien = []
+        current_channel = 2
         for other in world.agents:
             if other is agent: continue
-            comm.append(other.state.c)
             diff_distance = np.linalg.norm(other.state.p_pos - agent.state.p_pos)
             diff_orientation = other.orientation - agent.orientation
             other_pos.append(other.state.p_pos - agent.state.p_pos)
             vel_norm = np.linalg.norm(other.state.p_vel)
             vel_orien = self.get_angle(other.state.p_vel)
             other_vel.append(other.state.p_vel)
+            other_orien.append(np.array([diff_orientation,]))
+            obs2[current_channel][other.grid_index[0]][other.grid_index[1]] = 1
+            current_channel += 1
 
-        return np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_pos + other_vel)
+        
+        # the part of tensor
+        obs1 = np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_vel + other_pos +  other_orien)
+        
+        return np.concatenate([obs2.reshape(-1), obs1])
 
     # change variables after reward function
     def post_step(self, world):
@@ -456,6 +490,7 @@ class Scenario(BaseScenario):
 
 
 def main():
+    import time
     from onpolicy.envs.mpe.environment import MultiAgentEnv, CatchingEnv
     from onpolicy.envs.mpe.scenarios import load
     from onpolicy.config import get_config
@@ -470,24 +505,27 @@ def main():
     env = CatchingEnv(world, reset_callback=scenario.reset_world, reward_callback=scenario.reward, 
                         observation_callback= scenario.observation, info_callback=  scenario.info, 
                         done_callback=scenario.if_done, post_step_callback=scenario.post_step)
-    for ep in range(1):
+    start = time.time()
+    for ep in range(3):
         env.reset()
         frames = []
-        for i in range(50):
+        for i in range(100):
             one_action = [0,0,1,0,0]
             action = []
             for j in range(4):
-                # random.shuffle(one_action)
+                random.shuffle(one_action)
                 action.append(copy.copy(one_action))
             obs_n, reward_n, done_n, info_n = env.step(action)
-            print("reward_n:",reward_n)
-            print("done:",done_n)
-            img = env.render()
-            frames.append(img)
+            # print("reward_n:",reward_n)
+            # print("done:",done_n)
+            # img = env.render()
+            # frames.append(img)
             # for rw, ag in zip(reward_n,env.agents):
             #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
             # cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
             # imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.1)
+    end = time.time()
+    print("fps:", 300/(end-start))
 
     print("done")
 

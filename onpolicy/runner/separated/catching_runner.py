@@ -82,7 +82,10 @@ class MPERunner(Runner):
             group_obs = np.array(obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(obs[:,self.num_bads:].tolist())
             num_inner_agent = self.num_bads if group_id == 0 else self.num_goods
             if self.use_centralized_V:
-                share_obs = group_obs.reshape(self.n_rollout_threads, -1)
+                # share_obs = group_obs.reshape(self.n_rollout_threads, -1)
+                share_obs_2 = group_obs[:,:,(1+self.num_agents)*self.all_args.trav_map_size*self.all_args.trav_map_size:].reshape(self.n_rollout_threads, -1)
+                share_obs_1 = group_obs[:,0,:(1+self.num_agents)*self.all_args.trav_map_size*self.all_args.trav_map_size].reshape(self.n_rollout_threads, -1)
+                share_obs = np.concatenate([share_obs_1, share_obs_2],axis=1)
                 share_obs = np.expand_dims(share_obs, 1).repeat(num_inner_agent, axis=1)
             else:
                 share_obs = group_obs
@@ -156,7 +159,10 @@ class MPERunner(Runner):
             masks[group_dones == True] = np.zeros(((group_dones == True).sum(), 1), dtype=np.float32)
 
             if self.use_centralized_V:
-                share_obs = group_obs.reshape(self.n_rollout_threads, -1)
+                # share_obs = group_obs.reshape(self.n_rollout_threads, -1)
+                share_obs_2 = group_obs[:,:,(1+self.num_agents)*self.all_args.trav_map_size*self.all_args.trav_map_size:].reshape(self.n_rollout_threads, -1)
+                share_obs_1 = group_obs[:,0,:(1+self.num_agents)*self.all_args.trav_map_size*self.all_args.trav_map_size].reshape(self.n_rollout_threads, -1)
+                share_obs = np.concatenate([share_obs_1, share_obs_2],axis=1)
                 share_obs = np.expand_dims(share_obs, 1).repeat(num_inner_agent, axis=1)
             else:
                 share_obs = group_obs
