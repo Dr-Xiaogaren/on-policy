@@ -454,6 +454,10 @@ class Scenario(BaseScenario):
             other_orien.append(np.array([diff_orientation,]))
             obs2[current_channel][other.grid_index[0]][other.grid_index[1]] = 1
             current_channel += 1
+        
+        for ag_id in range(1,num_channel):
+            selem = skimage.morphology.disk(int(agent.size/world.trav_map_resolution))
+            obs2[ag_id] = skimage.morphology.binary_dilation(obs2[ag_id], selem)
 
         obs2 = cv2.resize(obs2.transpose(1,2,0),(world.obs_trav_mapsize, world.obs_trav_mapsize)).transpose(2,0,1)
         # the part of tensor
