@@ -191,7 +191,7 @@ class R_CNNCritic(nn.Module):
         cent_obs_shape = get_shape_from_obs_space(cent_obs_space)[0]
         size_for_fc = cent_obs_shape - self.size_for_cnn
 
-        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height,)
+        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
         self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
 
         merge_input_size = self.hidden_size + self.CNNbase.output_size
@@ -264,7 +264,7 @@ class R_CNNActor(nn.Module):
         obs_shape = get_shape_from_obs_space(obs_space)[0]
         size_for_fc = obs_shape - self.size_for_cnn
 
-        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height,)
+        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
         self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
 
         merge_input_size = self.hidden_size + self.CNNbase.output_size

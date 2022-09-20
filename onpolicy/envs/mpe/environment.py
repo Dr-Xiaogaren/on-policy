@@ -450,12 +450,12 @@ class CatchingEnv(MultiAgentEnv):
         for agent in self.agents:
             obs_dim = len(observation_callback(agent, self.world))
             if agent.adversary:
-                shair_bads_obs_dim += obs_dim - (self.n+1)*self.world.trav_map.shape[0]*world.trav_map.shape[1]
+                shair_bads_obs_dim += obs_dim - (self.n+1)*world.obs_trav_mapsize*world.obs_trav_mapsize
             else:
-                shair_good_obs_dim += obs_dim - (self.n+1)*self.world.trav_map.shape[0]*world.trav_map.shape[1]
+                shair_good_obs_dim += obs_dim - (self.n+1)*world.obs_trav_mapsize*world.obs_trav_mapsize
             
-        shair_bads_obs_dim += (self.n+1)*self.world.trav_map.shape[0]*world.trav_map.shape[1]
-        shair_good_obs_dim += (self.n+1)*self.world.trav_map.shape[0]*world.trav_map.shape[1]
+        shair_bads_obs_dim += (self.n+1)*world.obs_trav_mapsize*world.obs_trav_mapsize
+        shair_good_obs_dim += (self.n+1)*world.obs_trav_mapsize*world.obs_trav_mapsize
         
         self.share_observation_space = [spaces.Box(low=-np.inf, high=+np.inf, shape=(shair_bads_obs_dim,), dtype=np.float32), 
                                               spaces.Box(low=-np.inf, high=+np.inf, shape=(shair_good_obs_dim,), dtype=np.float32)]

@@ -217,7 +217,7 @@ def get_config():
     parser.add_argument("--use_recurrent_policy", action='store_false',
                         default=True, help='use a recurrent policy')
     parser.add_argument("--recurrent_N", type=int, default=1, help="The number of recurrent layers.")
-    parser.add_argument("--data_chunk_length", type=int, default=10,
+    parser.add_argument("--data_chunk_length", type=int, default=4,
                         help="Time length of chunks used to train a recurrent_policy")
 
     # optimizer parameters
@@ -295,5 +295,6 @@ def get_config():
     parser.add_argument("--max_initial_inter_distance", type=float, default=5, help = "by default 20, the max distance between adversaries and good")
     parser.add_argument("--min_initial_distance", type=float, default=1, help = "by default 1, the min distance between all agents")
     parser.add_argument("--max_map_size", type=int, default=1600, help="the maxsize of the loaded traversable map")
+    parser.add_argument("--trav_map_size", type=int, default=128, help="the size of observed map")
 
     return parser

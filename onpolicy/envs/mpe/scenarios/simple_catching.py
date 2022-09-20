@@ -26,6 +26,7 @@ class ExpWorld(World):
         self.min_initial_distance = args.min_initial_distance
         self.max_initial_inner_distance = args.max_initial_inner_distance
         self.max_initial_inter_distance = args.max_initial_inter_distance
+        self.obs_trav_mapsize = args.trav_map_size
         
     
     def load_trav_map(self, maps_path):
@@ -454,7 +455,7 @@ class Scenario(BaseScenario):
             obs2[current_channel][other.grid_index[0]][other.grid_index[1]] = 1
             current_channel += 1
 
-        
+        obs2 = cv2.resize(obs2.transpose(1,2,0),(world.obs_trav_mapsize, world.obs_trav_mapsize)).transpose(2,0,1)
         # the part of tensor
         obs1 = np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_vel + other_pos +  other_orien)
         
