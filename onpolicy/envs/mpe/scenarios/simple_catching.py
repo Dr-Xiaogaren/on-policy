@@ -27,6 +27,13 @@ class ExpWorld(World):
         self.max_initial_inner_distance = args.max_initial_inner_distance
         self.max_initial_inter_distance = args.max_initial_inter_distance
         self.obs_trav_mapsize = args.trav_map_size
+        self.location_grid = np.zeros((args.num_agents,self.trav_map.shape[0],self.trav_map.shape[1]))
+
+    def update_location_grid(self):
+        for i, agent in enumerate(self.agents):
+            self.location_grid[i][agent.grid_index[0]][agent.grid_index[1]] = 1
+            selem = skimage.morphology.disk(int(agent.size/self.trav_map_resolution))
+            self.location_grid[i] = skimage.morphology.binary_dilation(self.location_grid[i], selem)
         
     
     def load_trav_map(self, maps_path):
@@ -124,6 +131,7 @@ class ExpWorld(World):
         agent.if_collide = self.check_obstacle_collision(agent)
         if not agent.adversary:
             agent.if_dead = self.check_if_dead(agent)
+        self.update_location_grid()
 
         # update state of the world
     def step(self):
@@ -312,6 +320,7 @@ class Scenario(BaseScenario):
             agent.orientation = np.random.random()*math.pi*2
             agent.if_collide = False
             agent.if_dead = False
+        world.update_location_grid()
 
         for i, landmark in enumerate(world.landmarks):
             if not landmark.boundary:
@@ -436,33 +445,30 @@ class Scenario(BaseScenario):
         # first channel is obstacle
         obs2[0] = world.trav_map
         # second channel is myself
-        obs2[1][agent.grid_index[0]][agent.grid_index[1]] = 1
         
         # all other agents
         other_pos = []
         other_vel = []
         other_orien = []
         current_channel = 2
-        for other in world.agents:
-            if other is agent: continue
-            diff_distance = np.linalg.norm(other.state.p_pos - agent.state.p_pos)
+        for i, other in enumerate(world.agents):
+            if other is agent:
+                obs2[1] = world.location_grid[i]
+                continue
+            # diff_distance = np.linalg.norm(other.state.p_pos - agent.state.p_pos)
             diff_orientation = other.orientation - agent.orientation
             other_pos.append(other.state.p_pos - agent.state.p_pos)
-            vel_norm = np.linalg.norm(other.state.p_vel)
-            vel_orien = self.get_angle(other.state.p_vel)
+            # vel_norm = np.linalg.norm(other.state.p_vel)
+            # vel_orien = self.get_angle(other.state.p_vel)
             other_vel.append(other.state.p_vel)
             other_orien.append(np.array([diff_orientation,]))
-            obs2[current_channel][other.grid_index[0]][other.grid_index[1]] = 1
+            obs2[current_channel] = world.location_grid[i]
             current_channel += 1
-        
-        for ag_id in range(1,num_channel):
-            selem = skimage.morphology.disk(int(agent.size/world.trav_map_resolution))
-            obs2[ag_id] = skimage.morphology.binary_dilation(obs2[ag_id], selem)
 
         obs2 = cv2.resize(obs2.transpose(1,2,0),(world.obs_trav_mapsize, world.obs_trav_mapsize)).transpose(2,0,1)
         # the part of tensor
         obs1 = np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_vel + other_pos +  other_orien)
-        
+
         return np.concatenate([obs2.reshape(-1), obs1])
 
     # change variables after reward function
@@ -503,6 +509,7 @@ def main():
     args = parser.parse_known_args()[0]
     args.env_name = "MPE"
     args.scenario_name = "simple_catching"
+    args.num_agents = 4
     scenario = load(args.scenario_name + ".py").Scenario()
     # create world
     world = scenario.make_world(args)
@@ -524,6 +531,7 @@ def main():
             # print("reward_n:",reward_n)
             # print("done:",done_n)
             # img = env.render()
+            img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.trav_map_size,args.trav_map_size))[1]
             # frames.append(img)
             # for rw, ag in zip(reward_n,env.agents):
             #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)

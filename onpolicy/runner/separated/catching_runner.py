@@ -27,19 +27,30 @@ class MPERunner(Runner):
             if self.use_linear_lr_decay:
                 for group_id in range(self.num_groups):
                     self.trainer[group_id].policy.lr_decay(episode, episodes)
-
+            
+            start_collect = time.time()
+            ep_collect_time = 0
+            ep_ineract_time = 0
+            ep_insert_time = 0
             for step in range(self.episode_length):
                 # Sample actions
+                step_start = time.time()
                 values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
-                    
+                collect_end = time.time()
+                ep_collect_time += collect_end-step_start    
                 # Obser reward and next obs
                 obs, rewards, dones, infos = self.envs.step(actions_env)
-
+                interact_end = time.time()
+                ep_ineract_time += interact_end - collect_end
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic 
                 
                 # insert data into buffer
                 self.insert(data)
-
+                insert_end = time.time()
+                ep_insert_time += insert_end-interact_end
+            print("ep_collect_time:", ep_collect_time)
+            print("ep_ineract_time:", ep_ineract_time)
+            print("ep_insert_time:", ep_insert_time)
             # compute return and update network
             self.compute()
             train_infos = self.train()
