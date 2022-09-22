@@ -57,8 +57,6 @@ class MultiAgentEnv(gym.Env):
 
         # configure spaces
         self.action_space = []
-        self.observation_space = []
-        self.share_observation_space = []
         self.render_rw = []
         share_obs_dim = 0
         for agent in self.agents:
@@ -94,15 +92,6 @@ class MultiAgentEnv(gym.Env):
             else:
                 self.action_space.append(total_action_space[0])
             
-            # observation space
-            obs_dim = len(observation_callback(agent, self.world))
-            share_obs_dim += obs_dim
-            self.observation_space.append(spaces.Box(
-                low=-np.inf, high=+np.inf, shape=(obs_dim,), dtype=np.float32))  # [-inf,inf]
-            agent.action.c = np.zeros(self.world.dim_c)
-        
-        self.share_observation_space = [spaces.Box(
-            low=-np.inf, high=+np.inf, shape=(share_obs_dim,), dtype=np.float32) for _ in range(self.n)]
         
         # rendering
         self.shared_viewer = shared_viewer
@@ -447,18 +436,39 @@ class CatchingEnv(MultiAgentEnv):
         # two groups
         shair_bads_obs_dim = 0
         shair_good_obs_dim = 0
+        share_good_obs_keys = dict()
+        share_bad_obs_keys = dict()
+        self.observation_space = []       
         for agent in self.agents:
-            obs_dim = len(observation_callback(agent, self.world))
-            if agent.adversary:
-                shair_bads_obs_dim += obs_dim - (self.n+1)*world.obs_trav_mapsize*world.obs_trav_mapsize
-            else:
-                shair_good_obs_dim += obs_dim - (self.n+1)*world.obs_trav_mapsize*world.obs_trav_mapsize
-            
-        shair_bads_obs_dim += (self.n+1)*world.obs_trav_mapsize*world.obs_trav_mapsize
-        shair_good_obs_dim += (self.n+1)*world.obs_trav_mapsize*world.obs_trav_mapsize
-        
-        self.share_observation_space = [spaces.Box(low=-np.inf, high=+np.inf, shape=(shair_bads_obs_dim,), dtype=np.float32), 
-                                              spaces.Box(low=-np.inf, high=+np.inf, shape=(shair_good_obs_dim,), dtype=np.float32)]
+            observation_space_dict = dict()
+            for key, value in observation_callback(agent, self.world).items():
+                observation_space_dict[key] = spaces.Box(low=-np.inf, high=+np.inf, shape=value.shape, dtype=np.float32)
+                # accumulate the one-dim observation to share observation
+                if len(value.shape) == 1:
+                    if agent.adversary:
+                        shair_bads_obs_dim += value.shape[0]
+                        share_bad_obs_keys[key] = (shair_bads_obs_dim,)
+                    else:
+                        shair_good_obs_dim += value.shape[0]
+                        share_good_obs_keys[key] = (shair_good_obs_dim,)
+
+                else:
+                    if agent.adversary:
+                        share_bad_obs_keys[key] = value.shape
+                    else:
+                        share_good_obs_keys[key] = value.shape
+
+            agent_observation_space = spaces.Dict(observation_space_dict)
+            self.observation_space.append(agent_observation_space)
+
+        share_bad_observation_dict = dict()
+        for name, shape in share_bad_obs_keys.items():
+            share_bad_observation_dict[name] = spaces.Box(low=-np.inf, high=+np.inf, shape=shape, dtype=np.float32)
+        share_good_observation_dict = dict()
+        for name, shape in share_good_obs_keys.items():
+            share_good_observation_dict[name] = spaces.Box(low=-np.inf, high=+np.inf, shape=shape, dtype=np.float32)
+
+        self.share_observation_space = [spaces.Dict(share_bad_observation_dict), spaces.Dict(share_good_observation_dict)]
         
 
     def render(self, save_path=None, mode='human', close=False):

@@ -177,7 +177,6 @@ class R_CNNCritic(nn.Module):
         super(R_CNNCritic, self).__init__()
         self.obs_height = args.trav_map_size
         self.num_channel = args.num_agents + 1
-        self.size_for_cnn = self.num_channel*self.obs_height*self.obs_height
         self.hidden_size = args.hidden_size
 
         self._use_orthogonal = args.use_orthogonal
@@ -188,8 +187,10 @@ class R_CNNCritic(nn.Module):
         self.tpdv = dict(dtype=torch.float32, device=device)
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
 
-        cent_obs_shape = get_shape_from_obs_space(cent_obs_space)[0]
-        size_for_fc = cent_obs_shape - self.size_for_cnn
+        cent_obs_shape = get_shape_from_obs_space(cent_obs_space)
+        
+        size_for_fc = cent_obs_shape["one-dim"].shape[0]
+        self.size_for_fc = size_for_fc
 
         self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
         self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
@@ -221,11 +222,11 @@ class R_CNNCritic(nn.Module):
         :return values: (torch.Tensor) value function predictions.
         :return rnn_states: (torch.Tensor) updated RNN hidden states.
         """
-        cent_obs = check(cent_obs).to(**self.tpdv)
+        cent_obs_for_cnn = check(cent_obs["two-dim"]).to(**self.tpdv).reshape(-1,self.num_channel,self.obs_height,self.obs_height)
+        cent_obs_for_fc = check(cent_obs["one-dim"]).to(**self.tpdv).reshape(-1,self.size_for_fc)
         rnn_states = check(rnn_states).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
-        cent_obs_for_cnn = cent_obs[:,:self.size_for_cnn].view(-1,self.num_channel,self.obs_height,self.obs_height)
-        cent_obs_for_fc = cent_obs[:,self.size_for_cnn:]
+        
         # encode respectively      
         critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
         critic_features_from_fc = self.FCbase(cent_obs_for_fc)
@@ -251,7 +252,6 @@ class R_CNNActor(nn.Module):
         self.hidden_size = args.hidden_size
         self.obs_height = args.trav_map_size
         self.num_channel = args.num_agents + 1
-        self.size_for_cnn = self.num_channel*self.obs_height*self.obs_height
         
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal
@@ -261,8 +261,9 @@ class R_CNNActor(nn.Module):
         self._recurrent_N = args.recurrent_N
         self.tpdv = dict(dtype=torch.float32, device=device)
 
-        obs_shape = get_shape_from_obs_space(obs_space)[0]
-        size_for_fc = obs_shape - self.size_for_cnn
+        obs_shape = get_shape_from_obs_space(obs_space)
+        size_for_fc = obs_shape["one-dim"].shape[0]
+        self.size_for_fc = size_for_fc
 
         self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
         self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
@@ -292,14 +293,14 @@ class R_CNNActor(nn.Module):
         :return action_log_probs: (torch.Tensor) log probabilities of taken actions.
         :return rnn_states: (torch.Tensor) updated RNN hidden states.
         """
-        obs = check(obs).to(**self.tpdv)
+        obs_for_cnn = check(obs["two-dim"]).to(**self.tpdv).reshape(-1,self.num_channel,self.obs_height,self.obs_height)
+        obs_for_fc = check(obs["one-dim"]).to(**self.tpdv).reshape(-1,self.size_for_fc)
         rnn_states = check(rnn_states).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
+
         if available_actions is not None:
             available_actions = check(available_actions).to(**self.tpdv)
         
-        obs_for_cnn = obs[:,:self.size_for_cnn].view(-1,self.num_channel,self.obs_height,self.obs_height)
-        obs_for_fc = obs[:,self.size_for_cnn:]
         # encode respectively      
         actor_features_from_cnn = self.CNNbase(obs_for_cnn)
         actor_features_from_fc = self.FCbase(obs_for_fc)
@@ -327,7 +328,8 @@ class R_CNNActor(nn.Module):
         :return action_log_probs: (torch.Tensor) log probabilities of the input actions.
         :return dist_entropy: (torch.Tensor) action distribution entropy for the given inputs.
         """
-        obs = check(obs).to(**self.tpdv)
+        obs_for_cnn = check(obs["two-dim"]).to(**self.tpdv).reshape(-1,self.num_channel,self.obs_height,self.obs_height)
+        obs_for_fc = check(obs["one-dim"]).to(**self.tpdv).reshape(-1,self.size_for_fc)
         rnn_states = check(rnn_states).to(**self.tpdv)
         action = check(action).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
@@ -337,8 +339,6 @@ class R_CNNActor(nn.Module):
         if active_masks is not None:
             active_masks = check(active_masks).to(**self.tpdv)
 
-        obs_for_cnn = obs[:,:self.size_for_cnn].view(-1,self.num_channel,self.obs_height,self.obs_height)
-        obs_for_fc = obs[:,self.size_for_cnn:]
         # encode respectively      
         actor_features_from_cnn = self.CNNbase(obs_for_cnn)
         actor_features_from_fc = self.FCbase(obs_for_fc)

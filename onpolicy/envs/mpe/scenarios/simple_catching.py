@@ -18,6 +18,7 @@ from torch import arcsin
 class ExpWorld(World):
     def __init__(self, args):
         super().__init__()
+        self.args = args
         self.maps_path = args.maps_path
         self.trav_map_default_resolution = args.trav_map_default_resolution
         self.trav_map_resolution = args.trav_map_resolution
@@ -260,10 +261,12 @@ class Scenario(BaseScenario):
         world.trav_map = world.load_trav_map(world.maps_path)
         travel_map = world.trav_map
         travel_map_revolution = world.trav_map_resolution
+        
         # the passable index
         selem = skimage.morphology.disk(int(world.agents[0].size/travel_map_revolution))
         obstacle_grid = skimage.morphology.binary_dilation(travel_map, selem)
         index_travelable = np.where(obstacle_grid == 0)
+        
         for agent in world.agents:
             if agent.adversary:
                 # random choose
@@ -469,7 +472,10 @@ class Scenario(BaseScenario):
         # the part of tensor
         obs1 = np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_vel + other_pos +  other_orien)
 
-        return np.concatenate([obs2.reshape(-1), obs1])
+        obs = dict()
+        obs["two-dim"] = obs2
+        obs["one-dim"] = obs1
+        return obs
 
     # change variables after reward function
     def post_step(self, world):
@@ -530,8 +536,8 @@ def main():
             obs_n, reward_n, done_n, info_n = env.step(action)
             # print("reward_n:",reward_n)
             # print("done:",done_n)
-            # img = env.render()
-            img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.trav_map_size,args.trav_map_size))[1]
+            img = env.render()
+            # img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.trav_map_size,args.trav_map_size))[1]
             # frames.append(img)
             # for rw, ag in zip(reward_n,env.agents):
             #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)

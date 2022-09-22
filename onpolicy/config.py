@@ -296,5 +296,6 @@ def get_config():
     parser.add_argument("--min_initial_distance", type=float, default=1, help = "by default 1, the min distance between all agents")
     parser.add_argument("--max_map_size", type=int, default=1600, help="the maxsize of the loaded traversable map")
     parser.add_argument("--trav_map_size", type=int, default=32, help="the size of observed map")
+    parser.add_argument("--observation_dict", type=list, default=["one-dim","two-dim"], help="the keys of observation space")
 
     return parser

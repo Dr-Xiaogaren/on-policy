@@ -28,29 +28,15 @@ class MPERunner(Runner):
                 for group_id in range(self.num_groups):
                     self.trainer[group_id].policy.lr_decay(episode, episodes)
             
-            start_collect = time.time()
-            ep_collect_time = 0
-            ep_ineract_time = 0
-            ep_insert_time = 0
             for step in range(self.episode_length):
                 # Sample actions
-                step_start = time.time()
                 values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
-                collect_end = time.time()
-                ep_collect_time += collect_end-step_start    
                 # Obser reward and next obs
                 obs, rewards, dones, infos = self.envs.step(actions_env)
-                interact_end = time.time()
-                ep_ineract_time += interact_end - collect_end
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic 
                 
                 # insert data into buffer
                 self.insert(data)
-                insert_end = time.time()
-                ep_insert_time += insert_end-interact_end
-            print("ep_collect_time:", ep_collect_time)
-            print("ep_ineract_time:", ep_ineract_time)
-            print("ep_insert_time:", ep_insert_time)
             # compute return and update network
             self.compute()
             train_infos = self.train()
@@ -88,21 +74,29 @@ class MPERunner(Runner):
     def warmup(self):
         # reset env
         obs = self.envs.reset()
+        obs_dict = dict()
+        # transpose the "key" dim and array dim
+        for key in self.obs_dict_keys:
+            obs_dict[key] = np.array([[obs[e][n][key] for n in range(self.num_agents)] for e in range(self.n_rollout_threads)])
 
         for group_id in range(self.num_groups):
-            group_obs = np.array(obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(obs[:,self.num_bads:].tolist())
-            num_inner_agent = self.num_bads if group_id == 0 else self.num_goods
-            if self.use_centralized_V:
-                # share_obs = group_obs.reshape(self.n_rollout_threads, -1)
-                share_obs_2 = group_obs[:,:,(1+self.num_agents)*self.all_args.trav_map_size*self.all_args.trav_map_size:].reshape(self.n_rollout_threads, -1)
-                share_obs_1 = group_obs[:,0,:(1+self.num_agents)*self.all_args.trav_map_size*self.all_args.trav_map_size].reshape(self.n_rollout_threads, -1)
-                share_obs = np.concatenate([share_obs_1, share_obs_2],axis=1)
-                share_obs = np.expand_dims(share_obs, 1).repeat(num_inner_agent, axis=1)
-            else:
-                share_obs = group_obs
-  
-            self.buffer[group_id].share_obs[0] = share_obs.copy()
-            self.buffer[group_id].obs[0] = group_obs.copy()
+            group_obs = dict()
+            share_obs = dict()
+            for key in self.obs_dict_keys:
+                group_obs[key] = obs_dict[key][:,:self.num_bads,...] if group_id == 0 else obs_dict[key][:,self.num_bads:,...]
+                num_inner_agent = self.num_bads if group_id == 0 else self.num_goods
+                if self.use_centralized_V:
+                    # share_obs = group_obs.reshape(self.n_rollout_threads, -1)
+                    if len(group_obs[key].shape) > 4:
+                        share_obs[key] = group_obs[key][:,0,...]
+                    else:
+                        share_obs[key] = group_obs[key].reshape(self.n_rollout_threads, -1)
+
+                    share_obs[key] = np.expand_dims(share_obs[key], 1).repeat(num_inner_agent, axis=1)
+                else:
+                    share_obs = group_obs
+                self.buffer[group_id].share_obs[key][0] = share_obs[key].copy()
+                self.buffer[group_id].obs[key][0] = group_obs[key].copy()
 
 
 
@@ -117,9 +111,16 @@ class MPERunner(Runner):
 
         for group_id in range(self.num_groups):
             self.trainer[group_id].prep_rollout()
+
+            share_obs_input = dict()
+            obs_input = dict()
+            for key in self.obs_dict_keys:
+                share_obs_input[key] = self.buffer[group_id].share_obs[key][step]
+                obs_input[key] = self.buffer[group_id].obs[key][step]
+
             value, action, action_log_prob, rnn_states, rnn_states_critic \
-                = self.trainer[group_id].policy.get_actions(np.concatenate(self.buffer[group_id].share_obs[step]),
-                            np.concatenate(self.buffer[group_id].obs[step]),
+                = self.trainer[group_id].policy.get_actions(share_obs_input,
+                            obs_input,
                             np.concatenate(self.buffer[group_id].rnn_states[step]),
                             np.concatenate(self.buffer[group_id].rnn_states_critic[step]),
                             np.concatenate(self.buffer[group_id].masks[step]))
@@ -156,9 +157,28 @@ class MPERunner(Runner):
 
     def insert(self, data):
         obs, rewards, dones, infos, all_values, all_actions, all_action_log_probs, all_rnn_states, all_rnn_states_critic = data
+        obs_dict = dict()
+        # transpose the "key" dim and array dim
+        for key in self.obs_dict_keys:
+            obs_dict[key] = np.array([[obs[e][n][key] for n in range(self.num_agents)] for e in range(self.n_rollout_threads)])
+
         for group_id in range(self.num_groups):
             # devide obs, reward, and dones into two groups
-            group_obs = np.array(obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(obs[:,self.num_bads:].tolist())
+            group_obs = dict()
+            share_obs = dict()
+            for key in self.obs_dict_keys:
+                group_obs[key] = obs_dict[key][:,:self.num_bads,...] if group_id == 0 else obs_dict[key][:,self.num_bads:,...]
+                num_inner_agent = self.num_bads if group_id == 0 else self.num_goods
+                if self.use_centralized_V:
+                    # share_obs = group_obs.reshape(self.n_rollout_threads, -1)
+                    if len(group_obs[key].shape) > 4:
+                        share_obs[key] = group_obs[key][:,0,...]
+                    else:
+                        share_obs[key] = group_obs[key].reshape(self.n_rollout_threads, -1)
+
+                    share_obs[key] = np.expand_dims(share_obs[key], 1).repeat(num_inner_agent, axis=1)
+                else:
+                    share_obs = group_obs
             group_dones = dones[:,:self.num_bads] if group_id == 0 else dones[:,self.num_bads:]
             group_rewards = rewards[:,:self.num_bads] if group_id == 0 else rewards[:,self.num_bads:]
             # group_infos = infos[:,:self.num_bads] if group_id == 0 else infos[:,self.num_bads:]
@@ -168,15 +188,6 @@ class MPERunner(Runner):
             num_inner_agent = self.num_bads if group_id == 0 else self.num_goods
             masks = np.ones((self.n_rollout_threads, num_inner_agent, 1), dtype=np.float32)
             masks[group_dones == True] = np.zeros(((group_dones == True).sum(), 1), dtype=np.float32)
-
-            if self.use_centralized_V:
-                # share_obs = group_obs.reshape(self.n_rollout_threads, -1)
-                share_obs_2 = group_obs[:,:,(1+self.num_agents)*self.all_args.trav_map_size*self.all_args.trav_map_size:].reshape(self.n_rollout_threads, -1)
-                share_obs_1 = group_obs[:,0,:(1+self.num_agents)*self.all_args.trav_map_size*self.all_args.trav_map_size].reshape(self.n_rollout_threads, -1)
-                share_obs = np.concatenate([share_obs_1, share_obs_2],axis=1)
-                share_obs = np.expand_dims(share_obs, 1).repeat(num_inner_agent, axis=1)
-            else:
-                share_obs = group_obs
             
             self.buffer[group_id].insert(share_obs, group_obs, all_rnn_states[group_id], all_rnn_states_critic[group_id],
                                all_actions[group_id], all_action_log_probs[group_id], all_values[group_id], group_rewards, masks)
@@ -187,6 +198,10 @@ class MPERunner(Runner):
         eval_episode_rewards_good = []
         eval_episode_rewards_bad = []
         eval_obs = self.eval_envs.reset()
+        eval_obs_dict = dict()
+        # transpose the "key" dim and array dim
+        for key in self.obs_dict_keys:
+            eval_obs_dict[key] = np.array([[eval_obs[e][n][key] for n in range(self.num_agents)] for e in range(self.n_eval_rollout_threads)])
         # two groups
         all_eval_rnn_states = [np.zeros((self.n_eval_rollout_threads, *self.buffer[0].rnn_states.shape[2:]), dtype=np.float32),
                                np.zeros((self.n_eval_rollout_threads, *self.buffer[1].rnn_states.shape[2:]), dtype=np.float32)]
@@ -197,15 +212,18 @@ class MPERunner(Runner):
             all_eval_actions_env = []
             for group_id in range(self.num_groups):
                 self.trainer[group_id].prep_rollout()
-                group_obs = np.array(eval_obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(eval_obs[:,self.num_bads:].tolist())
+                eval_group_obs = dict()
+                for key in self.obs_dict_keys:
+                    eval_group_obs[key] = eval_obs_dict[key][:,:self.num_bads,...] if group_id == 0 else eval_obs_dict[key][:,self.num_bads:,...]
 
-                eval_action, eval_rnn_states = self.trainer[group_id].policy.act(np.concatenate(group_obs),
+                eval_action, eval_rnn_states = self.trainer[group_id].policy.act(eval_group_obs,
                                                 np.concatenate(all_eval_rnn_states[group_id]),
                                                 np.concatenate(all_eval_masks[group_id]),
                                                 deterministic=True)
                 
                 eval_actions = np.array(np.split(_t2n(eval_action), self.n_eval_rollout_threads))
                 eval_rnn_states = np.array(np.split(_t2n(eval_rnn_states), self.n_eval_rollout_threads))
+                all_eval_rnn_states[group_id] = np.copy(eval_rnn_states)
 
                 if self.eval_envs.action_space[0].__class__.__name__ == 'MultiDiscrete':
                     for i in range(self.eval_envs.action_space[0].shape):
@@ -268,6 +286,11 @@ class MPERunner(Runner):
             eval_episode_rewards_good = []
             eval_episode_rewards_bad = []
             eval_obs = self.envs.reset()
+            eval_obs_dict = dict()
+            # transpose the "key" dim and array dim
+            for key in self.obs_dict_keys:
+                eval_obs_dict[key] = np.array([[eval_obs[e][n][key] for n in range(self.num_agents)] for e in range(self.n_eval_rollout_threads)])
+
             if self.all_args.save_gifs:
                 image = self.envs.render('rgb_array')[0]
                 all_frames.append(image)
@@ -282,9 +305,11 @@ class MPERunner(Runner):
                 calc_start = time.time()
                 for group_id in range(self.num_groups):
                     self.trainer[group_id].prep_rollout()
-                    group_obs = np.array(eval_obs[:,:self.num_bads].tolist()) if group_id == 0 else np.array(eval_obs[:,self.num_bads:].tolist())
+                    eval_group_obs = dict()
+                    for key in self.obs_dict_keys:
+                        eval_group_obs[key] = eval_obs_dict[key][:,:self.num_bads,...] if group_id == 0 else eval_obs_dict[key][:,self.num_bads:,...]
 
-                    eval_action, eval_rnn_states = self.trainer[group_id].policy.act(np.concatenate(group_obs),
+                    eval_action, eval_rnn_states = self.trainer[group_id].policy.act(eval_group_obs,
                                                     np.concatenate(all_eval_rnn_states[group_id]),
                                                     np.concatenate(all_eval_masks[group_id]),
                                                     deterministic=True)

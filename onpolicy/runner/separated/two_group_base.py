@@ -26,6 +26,7 @@ class Runner(object):
         self.num_groups = 2
         self.num_goods = config['num_goods'] # 1
         self.num_bads = config['num_bads'] # 3
+        self.obs_dict_keys = self.all_args.observation_dict
 
         # parameters
         self.env_name = self.all_args.env_name
@@ -135,8 +136,11 @@ class Runner(object):
             #                                                     self.buffer[agent_id].masks[-1])
             # next_value = _t2n(next_value)
             # self.buffer[agent_id].compute_returns(next_value, self.trainer[group_id].value_normalizer)
+            share_obs_input = dict()
+            for key in self.obs_dict_keys:
+                share_obs_input[key] = self.buffer[group_id].share_obs[key][-1]
 
-            next_values = self.trainer[group_id].policy.get_values(np.concatenate(self.buffer[group_id].share_obs[-1]),
+            next_values = self.trainer[group_id].policy.get_values(share_obs_input,
                                                 np.concatenate(self.buffer[group_id].rnn_states_critic[-1]),
                                                 np.concatenate(self.buffer[group_id].masks[-1]))
             next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
