@@ -27,10 +27,11 @@ class ExpWorld(World):
         self.min_initial_distance = args.min_initial_distance
         self.max_initial_inner_distance = args.max_initial_inner_distance
         self.max_initial_inter_distance = args.max_initial_inter_distance
-        self.obs_trav_mapsize = args.trav_map_size
+        self.obs_trav_mapsize = args.obs_map_size
         self.location_grid = np.zeros((args.num_agents,self.trav_map.shape[0],self.trav_map.shape[1]))
 
     def update_location_grid(self):
+        self.location_grid = np.zeros((self.args.num_agents,self.trav_map.shape[0],self.trav_map.shape[1]))
         for i, agent in enumerate(self.agents):
             self.location_grid[i][agent.grid_index[0]][agent.grid_index[1]] = 1
             selem = skimage.morphology.disk(int(agent.size/self.trav_map_resolution))
@@ -323,6 +324,7 @@ class Scenario(BaseScenario):
             agent.orientation = np.random.random()*math.pi*2
             agent.if_collide = False
             agent.if_dead = False
+
         world.update_location_grid()
 
         for i, landmark in enumerate(world.landmarks):
@@ -537,7 +539,7 @@ def main():
             # print("reward_n:",reward_n)
             # print("done:",done_n)
             img = env.render()
-            # img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.trav_map_size,args.trav_map_size))[1]
+            # img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.,args.trav_map_size))[1]
             # frames.append(img)
             # for rw, ag in zip(reward_n,env.agents):
             #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)

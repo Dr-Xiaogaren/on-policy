@@ -175,7 +175,7 @@ class R_CNNCritic(nn.Module):
     """
     def __init__(self, args, cent_obs_space, device=torch.device("cpu")):
         super(R_CNNCritic, self).__init__()
-        self.obs_height = args.trav_map_size
+        self.obs_height = args.obs_map_size
         self.num_channel = args.num_agents + 1
         self.hidden_size = args.hidden_size
 
@@ -250,7 +250,7 @@ class R_CNNActor(nn.Module):
         super(R_CNNActor, self).__init__()
 
         self.hidden_size = args.hidden_size
-        self.obs_height = args.trav_map_size
+        self.obs_height = args.obs_map_size
         self.num_channel = args.num_agents + 1
         
         self._gain = args.gain
