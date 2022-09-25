@@ -28,15 +28,7 @@ class ExpWorld(World):
         self.max_initial_inner_distance = args.max_initial_inner_distance
         self.max_initial_inter_distance = args.max_initial_inter_distance
         self.obs_trav_mapsize = args.obs_map_size
-        self.location_grid = np.zeros((args.num_agents,self.trav_map.shape[0],self.trav_map.shape[1]))
-
-    def update_location_grid(self):
-        self.location_grid = np.zeros((self.args.num_agents,self.trav_map.shape[0],self.trav_map.shape[1]))
-        for i, agent in enumerate(self.agents):
-            self.location_grid[i][agent.grid_index[0]][agent.grid_index[1]] = 1
-            selem = skimage.morphology.disk(int(agent.size/self.trav_map_resolution))
-            self.location_grid[i] = skimage.morphology.binary_dilation(self.location_grid[i], selem)
-        
+    
     
     def load_trav_map(self, maps_path):
         #  Loads the traversability maps for all floors
@@ -133,7 +125,6 @@ class ExpWorld(World):
         agent.if_collide = self.check_obstacle_collision(agent)
         if not agent.adversary:
             agent.if_dead = self.check_if_dead(agent)
-        self.update_location_grid()
 
         # update state of the world
     def step(self):
@@ -325,7 +316,6 @@ class Scenario(BaseScenario):
             agent.if_collide = False
             agent.if_dead = False
 
-        world.update_location_grid()
 
         for i, landmark in enumerate(world.landmarks):
             if not landmark.boundary:
@@ -445,18 +435,14 @@ class Scenario(BaseScenario):
                 entity_pos.append(entity.state.p_pos - agent.state.p_pos)
 
         # the image-like observation
-        num_channel = len(world.agents)  # obstacle map and all robots' location  
-        size_of_obs_window = world.trav_map.shape[0] // 2
+        num_channel = 1  # obstacle map
+        size_of_obs_window = world.obs_trav_mapsize
         obs2 = np.zeros((num_channel,size_of_obs_window, size_of_obs_window))
         # first channel is obstacle
         pad_map = np.pad(world.trav_map,
                          ((size_of_obs_window//2,size_of_obs_window//2),(size_of_obs_window//2,size_of_obs_window//2)),
                          'constant',
                          constant_values = ((1,1),(1,1)))
-        pad_location_grid = np.pad(world.location_grid,
-                         ((0,0),(size_of_obs_window//2,size_of_obs_window//2),(size_of_obs_window//2,size_of_obs_window//2)),
-                         'constant',
-                         constant_values = ((0,0),(1,1),(1,1)))
         index = agent.grid_index
         obs2[0] = pad_map[index[0]:index[0]+size_of_obs_window,index[1]:index[1]+size_of_obs_window]
 
@@ -466,7 +452,6 @@ class Scenario(BaseScenario):
         other_pos = []
         other_vel = []
         other_orien = []
-        current_channel = 1
         for i, other in enumerate(world.agents):
             if other is agent:
                 continue
@@ -477,14 +462,8 @@ class Scenario(BaseScenario):
             # vel_orien = self.get_angle(other.state.p_vel)
             other_vel.append(other.state.p_vel)
             other_orien.append(np.array([diff_orientation,]))
-            other_index = other.grid_index
-            obs2[current_channel] = pad_location_grid[i,other_index[0]:other_index[0]+size_of_obs_window,
-                                                      other_index[1]:other_index[1]+size_of_obs_window]
-            current_channel += 1
         
 
-
-        obs2 = cv2.resize(obs2.transpose(1,2,0),(world.obs_trav_mapsize, world.obs_trav_mapsize)).transpose(2,0,1)
         # the part of tensor
         obs1 = np.concatenate([agent.state.p_vel] + [agent.state.p_pos] + [np.array([agent.orientation,])] + entity_pos + other_vel + other_pos +  other_orien)
 
