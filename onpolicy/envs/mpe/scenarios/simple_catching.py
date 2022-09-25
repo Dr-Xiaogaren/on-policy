@@ -1,7 +1,7 @@
 from multiprocessing import current_process
 from re import S
 from tabnanny import check
-from tkinter import W
+from tkinter import W, constants
 import numpy as np
 from onpolicy.envs.mpe.core import World, Agent, Landmark
 from onpolicy.envs.mpe.scenario import BaseScenario
@@ -264,7 +264,7 @@ class Scenario(BaseScenario):
         travel_map_revolution = world.trav_map_resolution
         
         # the passable index
-        selem = skimage.morphology.disk(int(world.agents[0].size/travel_map_revolution))
+        selem = skimage.morphology.disk(int(world.agents[0].size*2/travel_map_revolution))
         obstacle_grid = skimage.morphology.binary_dilation(travel_map, selem)
         index_travelable = np.where(obstacle_grid == 0)
         
@@ -445,20 +445,30 @@ class Scenario(BaseScenario):
                 entity_pos.append(entity.state.p_pos - agent.state.p_pos)
 
         # the image-like observation
-        num_channel = 1 + len(world.agents)  # obstacle map and all robots' location  
-        obs2 = np.zeros((num_channel,*world.trav_map.shape))
+        num_channel = len(world.agents)  # obstacle map and all robots' location  
+        size_of_obs_window = world.trav_map.shape[0] // 2
+        obs2 = np.zeros((num_channel,size_of_obs_window, size_of_obs_window))
         # first channel is obstacle
-        obs2[0] = world.trav_map
+        pad_map = np.pad(world.trav_map,
+                         ((size_of_obs_window//2,size_of_obs_window//2),(size_of_obs_window//2,size_of_obs_window//2)),
+                         'constant',
+                         constant_values = ((1,1),(1,1)))
+        pad_location_grid = np.pad(world.location_grid,
+                         ((0,0),(size_of_obs_window//2,size_of_obs_window//2),(size_of_obs_window//2,size_of_obs_window//2)),
+                         'constant',
+                         constant_values = ((0,0),(1,1),(1,1)))
+        index = agent.grid_index
+        obs2[0] = pad_map[index[0]:index[0]+size_of_obs_window,index[1]:index[1]+size_of_obs_window]
+
         # second channel is myself
         
         # all other agents
         other_pos = []
         other_vel = []
         other_orien = []
-        current_channel = 2
+        current_channel = 1
         for i, other in enumerate(world.agents):
             if other is agent:
-                obs2[1] = world.location_grid[i]
                 continue
             # diff_distance = np.linalg.norm(other.state.p_pos - agent.state.p_pos)
             diff_orientation = other.orientation - agent.orientation
@@ -467,8 +477,12 @@ class Scenario(BaseScenario):
             # vel_orien = self.get_angle(other.state.p_vel)
             other_vel.append(other.state.p_vel)
             other_orien.append(np.array([diff_orientation,]))
-            obs2[current_channel] = world.location_grid[i]
+            other_index = other.grid_index
+            obs2[current_channel] = pad_location_grid[i,other_index[0]:other_index[0]+size_of_obs_window,
+                                                      other_index[1]:other_index[1]+size_of_obs_window]
             current_channel += 1
+        
+
 
         obs2 = cv2.resize(obs2.transpose(1,2,0),(world.obs_trav_mapsize, world.obs_trav_mapsize)).transpose(2,0,1)
         # the part of tensor

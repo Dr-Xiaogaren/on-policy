@@ -175,8 +175,6 @@ class R_CNNCritic(nn.Module):
     """
     def __init__(self, args, cent_obs_space, device=torch.device("cpu")):
         super(R_CNNCritic, self).__init__()
-        self.obs_height = args.obs_map_size
-        self.num_channel = args.num_agents + 1
         self.hidden_size = args.hidden_size
 
         self._use_orthogonal = args.use_orthogonal
@@ -190,8 +188,9 @@ class R_CNNCritic(nn.Module):
         cent_obs_shape = get_shape_from_obs_space(cent_obs_space)
         
         size_for_fc = cent_obs_shape["one-dim"].shape[0]
+        self.num_channel = cent_obs_shape["two-dim"].shape[0]
+        self.obs_height = cent_obs_shape["two-dim"].shape[1]
         self.size_for_fc = size_for_fc
-
         self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
         self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
 
@@ -263,6 +262,8 @@ class R_CNNActor(nn.Module):
 
         obs_shape = get_shape_from_obs_space(obs_space)
         size_for_fc = obs_shape["one-dim"].shape[0]
+        self.obs_height = obs_shape["two-dim"].shape[1]
+        self.num_channel = obs_shape["two-dim"].shape[0]
         self.size_for_fc = size_for_fc
 
         self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)

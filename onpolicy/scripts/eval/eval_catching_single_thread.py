@@ -172,7 +172,10 @@ def main(args):
          
         # reset
         eval_obs = single_env.reset()
-
+        eval_obs_dict = dict()
+        # transpose the "key" dim and array dim
+        for key in all_args.observation_dict:
+            eval_obs_dict[key] = np.array([eval_obs[n][key] for n in range(all_args.num_agents)])
         # rnn hidden state
         all_eval_rnn_states = [np.zeros((1, *runner.buffer[0].rnn_states.shape[2:]), dtype=np.float32),
                                np.zeros((1, *runner.buffer[1].rnn_states.shape[2:]), dtype=np.float32)]
@@ -184,9 +187,11 @@ def main(args):
             calc_start = time.time()
             for group_id in range(runner.num_groups):
                 runner.trainer[group_id].prep_rollout()
-                group_obs = np.array(eval_obs[:runner.num_bads]) if group_id == 0 else np.array(eval_obs[runner.num_bads:])
+                eval_group_obs = dict()
+                for key in all_args.observation_dict:
+                    eval_group_obs[key] = eval_obs_dict[key][:runner.num_bads,...] if group_id == 0 else eval_obs_dict[key][runner.num_bads:,...]
 
-                eval_action, eval_rnn_states = runner.trainer[group_id].policy.act(group_obs,
+                eval_action, eval_rnn_states = runner.trainer[group_id].policy.act(eval_group_obs,
                                                 np.concatenate(all_eval_rnn_states[group_id]),
                                                 np.concatenate(all_eval_masks[group_id]),
                                                 deterministic=True)
