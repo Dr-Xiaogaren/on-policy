@@ -454,9 +454,9 @@ class CatchingEnv(MultiAgentEnv):
 
                 else:
                     if agent.adversary:
-                        share_bad_obs_keys[key] = value.shape
+                        share_bad_obs_keys[key] = (world.args.num_adversaries,value.shape[-2],value.shape[-2])
                     else:
-                        share_good_obs_keys[key] = value.shape
+                        share_good_obs_keys[key] = (world.args.num_good_agents,value.shape[-2],value.shape[-2])
 
             agent_observation_space = spaces.Dict(observation_space_dict)
             self.observation_space.append(agent_observation_space)
