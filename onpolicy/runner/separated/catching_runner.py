@@ -88,7 +88,7 @@ class MPERunner(Runner):
                 if self.use_centralized_V:
                     # share_obs = group_obs.reshape(self.n_rollout_threads, -1)
                     if len(group_obs[key].shape) > 4:
-                        share_obs[key] = group_obs[key][:,0,...]
+                        share_obs[key] = group_obs[key][:,0:num_inner_agent,0,...]
                     else:
                         share_obs[key] = group_obs[key].reshape(self.n_rollout_threads, -1)
 
@@ -172,7 +172,7 @@ class MPERunner(Runner):
                 if self.use_centralized_V:
                     # share_obs = group_obs.reshape(self.n_rollout_threads, -1)
                     if len(group_obs[key].shape) > 4:
-                        share_obs[key] = group_obs[key][:,0,...]
+                        share_obs[key] = group_obs[key][:,0:num_inner_agent,0,...]
                     else:
                         share_obs[key] = group_obs[key].reshape(self.n_rollout_threads, -1)
 

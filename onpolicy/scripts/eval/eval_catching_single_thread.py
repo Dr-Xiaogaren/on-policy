@@ -219,6 +219,10 @@ def main(args):
 
             # evaluate
             eval_obs, eval_rewards, eval_dones, eval_infos = single_env.step(actions_env)
+            eval_obs_dict = dict()
+            # transpose the "key" dim and array dim
+            for key in all_args.observation_dict:
+                eval_obs_dict[key] = np.array([eval_obs[n][key] for n in range(all_args.num_agents)])
 
             for group_id in range(runner.num_groups):
                 # split into two groups

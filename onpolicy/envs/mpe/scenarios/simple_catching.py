@@ -233,7 +233,7 @@ class Scenario(BaseScenario):
             agent.max_speed = 1.0 if agent.adversary else 1.0
             agent.grid_index = None
             agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
-            agent.rotation_stepsize = math.pi/12
+            agent.rotation_stepsize = math.pi/6
             agent.last_pos = None # pos in last time step
             agent.if_dead = False
 

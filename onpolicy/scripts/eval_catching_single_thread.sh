@@ -6,8 +6,8 @@ num_agents=4
 algo="rmappo"
 exp="debug"
 seed_max=1
-model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching/rmappo/EnvV1_check_32_egocentric/wandb/run-20220923_141335-1uzlracv/files"
-load_model_ep=3600
+model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching/rmappo/EnvV1_check_32_egocentric_one-mask_flexible_motion/wandb/run-20220925_161527-2akdt2r6/files"
+load_model_ep=4900
 
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
