@@ -437,14 +437,22 @@ class Scenario(BaseScenario):
         # the image-like observation
         num_channel = 1  # obstacle map
         size_of_obs_window = world.obs_trav_mapsize
+        size_of_rawobs_window = world.obs_trav_mapsize*2
         obs2 = np.zeros((num_channel,size_of_obs_window, size_of_obs_window))
         # first channel is obstacle
         pad_map = np.pad(world.trav_map,
-                         ((size_of_obs_window//2,size_of_obs_window//2),(size_of_obs_window//2,size_of_obs_window//2)),
+                         ((size_of_rawobs_window//2,size_of_rawobs_window//2),(size_of_rawobs_window//2,size_of_rawobs_window//2)),
                          'constant',
                          constant_values = ((1,1),(1,1)))
         index = agent.grid_index
-        obs2[0] = pad_map[index[0]:index[0]+size_of_obs_window,index[1]:index[1]+size_of_obs_window]
+        raw_obs2 = pad_map[index[0]:index[0]+size_of_rawobs_window,index[1]:index[1]+size_of_rawobs_window]
+
+        rotation_angle = 90- math.degrees(agent.orientation)
+        # rotation_angle = 0
+        M = cv2.getRotationMatrix2D((size_of_rawobs_window//2,size_of_rawobs_window//2), rotation_angle, 1.0)
+        rotated = cv2.warpAffine(raw_obs2, M, (size_of_rawobs_window, size_of_rawobs_window))
+        obs2[0] = rotated[size_of_rawobs_window//2-size_of_obs_window//2:size_of_rawobs_window//2+size_of_obs_window//2,
+                          size_of_rawobs_window//2-size_of_obs_window//2:size_of_rawobs_window//2+size_of_obs_window//2]
 
         # second channel is myself
         
@@ -519,7 +527,7 @@ def main():
                         observation_callback= scenario.observation, info_callback=  scenario.info, 
                         done_callback=scenario.if_done, post_step_callback=scenario.post_step)
     start = time.time()
-    for ep in range(3):
+    for ep in range(1):
         env.reset()
         frames = []
         for i in range(100):
@@ -532,12 +540,16 @@ def main():
             # print("reward_n:",reward_n)
             # print("done:",done_n)
             img = env.render()
+
+            agent_0_obs = (1-obs_n[-1]["two-dim"].transpose(1,2,0))*255
             # img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.,args.trav_map_size))[1]
             # frames.append(img)
             # for rw, ag in zip(reward_n,env.agents):
             #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
-            # cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
+            cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
+            cv2.imwrite("/workspace/tmp/image/agent_0_{}.png".format(str(i)), agent_0_obs)
             # imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.1)
+            print(i,"orien",env.agents[-1].orientation)
     end = time.time()
     print("fps:", 300/(end-start))
 
