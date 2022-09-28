@@ -33,7 +33,7 @@ class MPERunner(Runner):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic, actions_env = self.collect(step)
                     
                 # Obser reward and next obs
-                obs, rewards, dones, infos = self.envs.step(actions_env)
+                obs, rewards, dones, infos = self.envs.step(actions_env,mode=self.step_mode)
 
                 data = obs, rewards, dones, infos, values, actions, action_log_probs, rnn_states, rnn_states_critic 
                 
@@ -207,7 +207,7 @@ class MPERunner(Runner):
             # gather  all groups' action into one array
             actions_env = np.concatenate(all_eval_actions_env, axis=1)
             # evaluate 
-            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(actions_env)
+            eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(actions_env,mode=self.step_mode)
 
 
             for group_id in range(self.num_groups):
@@ -294,7 +294,7 @@ class MPERunner(Runner):
                 actions_env = np.concatenate(all_eval_actions_env, axis=1)
                 # evaluate 
 
-                eval_obs, eval_rewards, eval_dones, eval_infos = self.envs.step(actions_env)
+                eval_obs, eval_rewards, eval_dones, eval_infos = self.envs.step(actions_env,mode=self.step_mode)
 
 
                 for group_id in range(self.num_groups):

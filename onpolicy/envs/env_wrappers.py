@@ -97,13 +97,13 @@ class ShareVecEnv(ABC):
         self.close_extras()
         self.closed = True
 
-    def step(self, actions):
+    def step(self, actions, mode):
         """
         Step the environments synchronously.
 
         This is available for backwards compatibility.
         """
-        self.step_async(actions)
+        self.step_async(actions, mode)
         return self.step_wait()
 
     def render(self, mode='human'):
@@ -143,7 +143,9 @@ def worker(remote, parent_remote, env_fn_wrapper):
     while True:
         cmd, data = remote.recv()
         if cmd == 'step':
-            ob, reward, done, info = env.step(data)
+            actions = data[0]
+            mode = data[1]
+            ob, reward, done, info = env.step(actions,mode)
             if 'bool' in done.__class__.__name__:
                 if done:
                     ob = env.reset()
@@ -254,9 +256,9 @@ class SubprocVecEnv(ShareVecEnv):
         ShareVecEnv.__init__(self, len(env_fns), observation_space,
                              share_observation_space, action_space)
 
-    def step_async(self, actions):
+    def step_async(self, actions, mode):
         for remote, action in zip(self.remotes, actions):
-            remote.send(('step', action))
+            remote.send(('step', [action, mode]))
         self.waiting = True
 
     def step_wait(self):

@@ -294,6 +294,7 @@ def get_config():
     parser.add_argument("--max_initial_inner_distance", type=float, default=2, help = "by default 5, the max distance between adversaries and good")
     parser.add_argument("--max_initial_inter_distance", type=float, default=5, help = "by default 20, the max distance between adversaries and good")
     parser.add_argument("--min_initial_distance", type=float, default=1, help = "by default 1, the min distance between all agents")
+    parser.add_argument("--step_mode", type=str, default="expert_prey", help=" the step mode: None expert_prey" )
 
     # debug
     parser.add_argument("--rw_scale", type=float, default=0.5, help = "by default 0.5, reward sacle")
