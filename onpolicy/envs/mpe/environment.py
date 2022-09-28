@@ -579,3 +579,41 @@ class CatchingEnv(MultiAgentEnv):
         return colored
 
     
+class CatchingEnvExpert(CatchingEnv):
+    def __init__(self, world, reset_callback=None, reward_callback=None, observation_callback=None, info_callback=None, done_callback=None, post_step_callback=None, shared_viewer=True, discrete_action=True):
+        super().__init__(world, reset_callback, reward_callback, observation_callback, info_callback, done_callback, post_step_callback, shared_viewer, discrete_action)
+    
+    def step(self, action_n, mode=None):
+        self.current_step += 1
+        obs_n = []
+        reward_n = []
+        done_n = []
+        info_n = []
+        self.agents = self.world.policy_agents
+        # set action for each agent
+        for i, agent in enumerate(self.agents):
+            self._set_action(action_n[i], agent, self.action_space[i])
+        # advance world state
+        self.world.step(mode = mode)  # core.step()
+        # record observation for each agent
+        for i, agent in enumerate(self.agents):
+            obs_n.append(self._get_obs(agent))
+            reward_n.append([self._get_reward(agent)])
+            done_n.append(self._get_done(agent))
+            info = {'individual_reward': self._get_reward(agent)}
+            env_info = self._get_info(agent)
+            if 'fail' in env_info.keys():
+                info['fail'] = env_info['fail']
+            info_n.append(info)
+
+        # all agents get total reward in cooperative case, if shared reward, all agents have the same reward, and reward is sum
+        reward = np.sum(reward_n)
+        if self.shared_reward:
+            reward_n = [[reward]] * self.n
+
+        if self.post_step_callback is not None:
+            self.post_step_callback(self.world)
+        # for render
+        self.render_rw = reward_n
+
+        return obs_n, reward_n, done_n, info_n

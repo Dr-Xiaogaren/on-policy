@@ -27,6 +27,7 @@ class Runner(object):
         self.num_goods = config['num_goods'] # 1
         self.num_bads = config['num_bads'] # 3
         self.obs_dict_keys = self.all_args.observation_dict
+        self.step_mode = self.all_args.step_mode
 
         # parameters
         self.env_name = self.all_args.env_name
