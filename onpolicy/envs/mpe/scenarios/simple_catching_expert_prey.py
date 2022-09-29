@@ -434,7 +434,7 @@ class Scenario(BaseScenario):
                     if adv.name == agent.name:
                         rew += 10*world.rw_scale
             if ag.if_dead:
-                rew += 10
+                rew += 200
         # if collide
         if agent.if_collide:
             rew += -5

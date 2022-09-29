@@ -1,5 +1,8 @@
 #!/usr/bin/env python
+from hashlib import pbkdf2_hmac
+import pdb
 from sre_constants import SUCCESS
+from statistics import mean
 import sys
 import os
 import wandb
@@ -13,6 +16,7 @@ from onpolicy.envs.mpe.MPE_env import MPEEnv, MPECatchingEnv, MPECatchingEnvExpe
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 import time
 import imageio
+from tqdm import tqdm
 
 def make_train_env(all_args):
     def get_env_fn(rank):
@@ -159,14 +163,16 @@ def main(args):
 
     # env
     single_env = MPECatchingEnvExpert(all_args)
-
+    success_step_set = []
+    success_rate = 0
     # start 
-    for ep in range(num_test_episode):
+    for ep in tqdm(range(num_test_episode)):
         # two group reward
         success_step = 0
         eval_episode_rewards_good = []
         eval_episode_rewards_bad = []
         all_frames = []
+
 
         if all_args.save_gifs:
                 image = single_env.render()
@@ -246,25 +252,34 @@ def main(args):
             
             if sum(eval_dones) == num_agents:
                 success_step = step
+                success_step_set.append(success_step)
+                if success_step <  episode_length:
+                    success_rate += 1
                 break
+        
         
         eval_train_infos = []
 
         eval_episode_rewards_bad = np.array(eval_episode_rewards_bad)
         eval_episode_rewards_good = np.array(eval_episode_rewards_good)
-        print("------------------------------------------------------------------------------------")
-        print("episode:",ep)
-        print("success step:", success_step)
-        eval_average_episode_rewards_bad = np.mean(np.sum(np.array(eval_episode_rewards_bad), axis=0))
-        eval_train_infos.append({'eval_average_episode_rewards': eval_average_episode_rewards_bad})
-        print("eval average episode rewards of group 0: "  + str(eval_average_episode_rewards_bad))
+        # print("------------------------------------------------------------------------------------")
+        # print("episode:",ep)
+        # print("success step:", success_step)
+        # eval_average_episode_rewards_bad = np.mean(np.sum(np.array(eval_episode_rewards_bad), axis=0))
+        # eval_train_infos.append({'eval_average_episode_rewards': eval_average_episode_rewards_bad})
+        # print("eval average episode rewards of group 0: "  + str(eval_average_episode_rewards_bad))
 
-        eval_average_episode_rewards_good = np.mean(np.sum(np.array(eval_episode_rewards_good), axis=0))
-        eval_train_infos.append({'eval_average_episode_rewards': eval_average_episode_rewards_good})
-        print("eval average episode rewards of group 1: "  + str(eval_average_episode_rewards_good))
+        # eval_average_episode_rewards_good = np.mean(np.sum(np.array(eval_episode_rewards_good), axis=0))
+        # eval_train_infos.append({'eval_average_episode_rewards': eval_average_episode_rewards_good})
+        # print("eval average episode rewards of group 1: "  + str(eval_average_episode_rewards_good))
 
         if all_args.save_gifs:
                 imageio.mimsave(str(runner.gif_dir) + "/render_{}.gif".format(str(ep)), all_frames, duration=all_args.ifi)
+
+    eval_average_episode_length = mean(success_step_set)
+    success_rate = success_rate/num_test_episode
+    print("average episode length:", eval_average_episode_length)
+    print("average success rate:", success_rate)
     # post process
     envs.close()
 
