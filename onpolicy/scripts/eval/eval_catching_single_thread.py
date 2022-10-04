@@ -9,7 +9,7 @@ import numpy as np
 from pathlib import Path
 import torch
 from onpolicy.config import get_config
-from onpolicy.envs.mpe.MPE_env import MPEEnv, MPECatchingEnv
+from onpolicy.envs.mpe.MPE_env import MPEEnv, MPECatchingEnv, MPECatchingEnvExpert
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 import time
 import imageio
@@ -18,7 +18,7 @@ def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "MPE":
-                env = MPECatchingEnv(all_args)
+                env = MPECatchingEnvExpert(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -36,7 +36,7 @@ def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "MPE":
-                env = MPECatchingEnv(all_args)
+                env = MPECatchingEnvExpert(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -156,7 +156,7 @@ def main(args):
     episode_length = all_args.episode_length
 
     # env
-    single_env = MPECatchingEnv(all_args)
+    single_env = MPECatchingEnvExpert(all_args)
 
     # start 
     for ep in range(num_test_episode):
@@ -218,7 +218,7 @@ def main(args):
             actions_env = np.concatenate(all_eval_actions_env, axis=1)[0].tolist()
 
             # evaluate
-            eval_obs, eval_rewards, eval_dones, eval_infos = single_env.step(actions_env)
+            eval_obs, eval_rewards, eval_dones, eval_infos = single_env.step(actions_env, mode = all_args.step_mode)
             eval_obs_dict = dict()
             # transpose the "key" dim and array dim
             for key in all_args.observation_dict:
