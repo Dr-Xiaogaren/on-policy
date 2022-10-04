@@ -584,6 +584,7 @@ class CatchingEnvExpert(CatchingEnv):
         super().__init__(world, reset_callback, reward_callback, observation_callback, info_callback, done_callback, post_step_callback, shared_viewer, discrete_action)
     
     def step(self, action_n, mode=None):
+        assert mode == "expert_adversary" or mode == "expert_both" or mode == "expert_prey" or mode == "none"
         self.current_step += 1
         obs_n = []
         reward_n = []
@@ -591,10 +592,18 @@ class CatchingEnvExpert(CatchingEnv):
         info_n = []
         self.agents = self.world.policy_agents
         # set action for each agent
+
         for i, agent in enumerate(self.agents):
+            if agent.adversary:
+                if mode == "expert_adversary" or mode == "expert_both":
+                    action_n[i] = self.world.get_expert_action(agent)
+            else:
+                if mode == "expert_prey" or mode == "expert_both":
+                    action_n[i] = self.world.get_expert_action(agent)
+
             self._set_action(action_n[i], agent, self.action_space[i])
         # advance world state
-        self.world.step(mode = mode)  # core.step()
+        self.world.step()  # core.step()
         # record observation for each agent
         for i, agent in enumerate(self.agents):
             obs_n.append(self._get_obs(agent))

@@ -8,7 +8,7 @@ import numpy as np
 from pathlib import Path
 import torch
 from onpolicy.config import get_config
-from onpolicy.envs.mpe.MPE_env import MPEEnv, MPECatchingEnv
+from onpolicy.envs.mpe.MPE_env import MPEEnv, MPECatchingEnv, MPECatchingEnvExpert
 from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 
 """Train script for MPEs."""
@@ -17,7 +17,7 @@ def make_train_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "MPE":
-                env = MPECatchingEnv(all_args)
+                env = MPECatchingEnvExpert(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -35,7 +35,7 @@ def make_eval_env(all_args):
     def get_env_fn(rank):
         def init_env():
             if all_args.env_name == "MPE":
-                env = MPEEnv(all_args)
+                env = MPECatchingEnvExpert(all_args)
             else:
                 print("Can not support the " +
                       all_args.env_name + "environment.")
@@ -72,8 +72,6 @@ def main(args):
     else:
         raise NotImplementedError
 
-    assert (all_args.share_policy == True and all_args.scenario_name == 'simple_speaker_listener') == False, (
-        "The simple_speaker_listener scenario can not use shared policy. Please check the config.py.")
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():
@@ -132,21 +130,22 @@ def main(args):
     envs = make_train_env(all_args)
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = all_args.num_agents
+    num_goods = all_args.num_good_agents
+    num_bads = all_args.num_adversaries
 
     config = {
         "all_args": all_args,
         "envs": envs,
         "eval_envs": eval_envs,
         "num_agents": num_agents,
+        "num_goods": num_goods,
+        "num_bads": num_bads,
         "device": device,
         "run_dir": run_dir
     }
 
     # run experiments
-    if all_args.share_policy:
-        from onpolicy.runner.shared.mpe_runner import MPERunner as Runner
-    else:
-        from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
+    from onpolicy.runner.separated.catching_runner import MPERunner as Runner
 
     runner = Runner(config)
     runner.run()
