@@ -2,6 +2,7 @@ import gym
 from gym import spaces
 from gym.envs.registration import EnvSpec
 import numpy as np
+from wandb import controller
 from .multi_discrete import MultiDiscrete
 import seaborn as sns
 import skimage
@@ -626,3 +627,13 @@ class CatchingEnvExpert(CatchingEnv):
         self.render_rw = reward_n
 
         return obs_n, reward_n, done_n, info_n
+
+
+    def controllers(self):
+        action_n = [[]] * self.n
+        for i, agent in enumerate(self.agents):
+            if agent.adversary:
+                action_n[i] = self.world.get_expert_action(agent)
+            else:
+                action_n[i] = self.world.get_expert_action(agent)
+        return action_n

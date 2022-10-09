@@ -212,7 +212,7 @@ class ExpWorld(World):
     def get_virtual_force(self, agent):
         # get expert action of prey
         coeff_for_agent = 1
-        coeff_for_wall = 0.8
+        coeff_for_wall = 0.6
         force_from_agent = np.zeros((self.dim_c,))
         force_from_wall = np.zeros((self.dim_c,))
         max_distance = self.trav_map.shape[0]*self.trav_map_resolution
@@ -247,17 +247,19 @@ class ExpWorld(World):
             for steps in range(1,max_detect_step):
                 # shift location
                 shift_vector = detect_stepsize*steps*np.array([math.cos(degree), math.sin(degree)])
-                if np.linalg.norm(shift_vector) > np.min(distance_set):
-                    distance_set[i] = np.linalg.norm(shift_vector)
-                    break
+                # if np.linalg.norm(shift_vector) > np.min(distance_set):
+                #     distance_set[i] = np.linalg.norm(shift_vector)
+                #     break
                 shift_loc = agent.state.p_pos + shift_vector
                 shift_loc_grid_index = self.world_to_grid(shift_loc)
                 if self.trav_map[shift_loc_grid_index[0]][shift_loc_grid_index[1]]:
                     distance_set[i] = np.linalg.norm(shift_vector)
                     break
-        min_dis_to_wall = np.min(distance_set)
-        min_dis_degree = detect_degree[np.argmin(distance_set)]
-        force_from_wall = - max_distance/min_dis_to_wall * np.array([math.cos(min_dis_degree), math.sin(min_dis_degree)])
+        # min_dis_to_wall = np.min(distance_set)
+        # min_dis_degree = detect_degree[np.argmin(distance_set)]
+        # force_from_wall = - max_distance/min_dis_to_wall * np.array([math.cos(min_dis_degree), math.sin(min_dis_degree)])
+        for dis_degree, dis_to_wall in zip(detect_degree, distance_set.tolist()):
+            force_from_wall += - max_distance/dis_to_wall * np.array([math.cos(dis_degree), math.sin(dis_degree)])
 
         total_force = coeff_for_wall * force_from_wall + coeff_for_agent*force_from_agent
         

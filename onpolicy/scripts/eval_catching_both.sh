@@ -1,14 +1,14 @@
 #!/bin/sh
 env="MPE"
-scenario="simple_catching_expert_prey"  # simple_speaker_listener # simple_reference
+scenario="simple_catching_expert_both"  # simple_speaker_listener # simple_reference
 num_landmarks=0
 num_agents=4
 algo="rmappo"
 exp="debug"
 seed_max=1
-model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching_expert_prey/rmappo/EnvV1_check_48_egocentric_one-mask_flexible_motion_rotation_Expert/wandb/run-20220930_163610-2gri13t9/files"
-load_model_ep=4900
-num_test_episode=100
+model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching_expert_both/rmappo/check_Imitation_48_egocentric_one-mask_flexible_motion_rotation/wandb/run-20221009_111358-1txrzsdu/files"
+load_model_ep=250
+num_test_episode=10
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do

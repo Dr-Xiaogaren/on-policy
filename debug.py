@@ -1,6 +1,8 @@
+from cgi import print_environ
 import numpy as np
-a = np.zeros((2,2,3))
-b = np.zeros((2,2,3))
+import torch
 
-c = np.concatenate(a)
-print(c.shape)
+x = torch.tensor([[0.99,0.1,0.0,0.0,0.0]])
+target = torch.tensor([0])
+loss = torch.nn.CrossEntropyLoss()(x, target)
+print(loss)

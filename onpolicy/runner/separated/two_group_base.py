@@ -7,7 +7,7 @@ import numpy as np
 from itertools import chain
 import torch
 from tensorboardX import SummaryWriter
-
+import os
 from onpolicy.utils.separated_buffer import SeparatedReplayBuffer
 from onpolicy.utils.shared_buffer import SharedReplayBuffer
 from onpolicy.utils.util import update_linear_schedule
@@ -169,8 +169,12 @@ class Runner(object):
         for group_id in range(self.num_groups):
             policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor_group' + str(group_id) + "-ep" + str(episode) + '.pt')
             self.policy[group_id].actor.load_state_dict(policy_actor_state_dict)
-            policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic_group' + str(group_id) + "-ep" + str(episode) + '.pt')
-            self.policy[group_id].critic.load_state_dict(policy_critic_state_dict)
+            critic_path = str(self.model_dir) + '/critic_group' + str(group_id) + "-ep" + str(episode) + '.pt'
+            if os.path.exists(critic_path):
+                policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic_group' + str(group_id) + "-ep" + str(episode) + '.pt')
+                self.policy[group_id].critic.load_state_dict(policy_critic_state_dict)
+            else:
+                print("critic model not loaded!")
 
     def log_train(self, train_infos, total_num_steps): 
         for group_id in range(self.num_groups):
