@@ -217,7 +217,7 @@ def get_config():
     parser.add_argument("--use_recurrent_policy", action='store_false',
                         default=True, help='use a recurrent policy')
     parser.add_argument("--recurrent_N", type=int, default=1, help="The number of recurrent layers.")
-    parser.add_argument("--data_chunk_length", type=int, default=4,
+    parser.add_argument("--data_chunk_length", type=int, default=10,
                         help="Time length of chunks used to train a recurrent_policy")
 
     # optimizer parameters
@@ -298,6 +298,7 @@ def get_config():
     parser.add_argument("--obs_map_size", type=int, default=48, help="the size of observed map")
     parser.add_argument("--observation_dict", type=list, default=["one-dim","two-dim"], help="the keys of observation space")
     parser.add_argument("--step_mode", type=str, default="none", help=" assert mode == expert_adversary or mode == expert_both or mode == expert_prey or mode == none" )
+    parser.add_argument("--use_intrinsic_reward", action='store_true', default=False, help="use_intrinsic_reward")
 
     # imitation learning
     parser.add_argument("--expert_path_gp0", type=str, default="/workspace/tmp/data/chaser_trajectory_1.0.npz", help="set the path to the expert trajectory of predators")
