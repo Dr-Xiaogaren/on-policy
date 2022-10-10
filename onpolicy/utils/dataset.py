@@ -256,12 +256,12 @@ class DataLoader(object):
         mask_batch = []
         indices = self.indices[self.start_idx]
         for index in indices:
-            self.start_idx = index * self.data_chunk_length
+            ind = index * self.data_chunk_length
 
             for key in self.observations.keys():
-                obs_batch[key].append(self.observations[key][self.start_idx:self.start_idx+self.data_chunk_length])
-            actions_batch.append(self.actions[self.start_idx:self.start_idx+self.data_chunk_length])
-            mask_batch.append(self.mask[self.start_idx:self.start_idx+self.data_chunk_length])
+                obs_batch[key].append(self.observations[key][ind:ind+self.data_chunk_length])
+            actions_batch.append(self.actions[ind:ind+self.data_chunk_length])
+            mask_batch.append(self.mask[ind:ind+self.data_chunk_length])
 
         for key in self.observations.keys():
             obs_batch[key] = np.stack(obs_batch[key], 1)
@@ -289,12 +289,12 @@ class DataLoader(object):
                     actions_batch = []
                     mask_batch = []
                     for index in indices:
-                        self.start_idx = index * self.data_chunk_length
+                        ind = index * self.data_chunk_length
 
                         for key in self.observations.keys():
-                            obs_batch[key].append(self.observations[key][self.start_idx:self.start_idx+self.data_chunk_length])
-                        actions_batch.append(self.actions[self.start_idx:self.start_idx+self.data_chunk_length])
-                        mask_batch.append(self.mask[self.start_idx:self.start_idx+self.data_chunk_length])
+                            obs_batch[key].append(self.observations[key][ind:ind+self.data_chunk_length])
+                        actions_batch.append(self.actions[ind:ind+self.data_chunk_length])
+                        mask_batch.append(self.mask[ind:ind+self.data_chunk_length])
 
                     for key in self.observations.keys():
                         obs_batch[key] = np.stack(obs_batch[key], 1)

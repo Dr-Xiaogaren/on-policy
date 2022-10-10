@@ -94,24 +94,30 @@ class Runner(object):
                 for group_id in range(self.num_groups):
                     self.trainer[group_id].policy.lr_decay(epoch_id, self.num_epoch)
             train_infos = []
+            val_infos = []
             for group_id in range(self.num_groups):
                 self.trainer[group_id].prep_training()
                 train_info = self.trainer[group_id].train(self.dataset[group_id])
                 val_info = self.trainer[group_id].val(self.dataset[group_id])
-                train_infos.append(train_info) 
+                train_infos.append(train_info)
+                val_infos.append(val_info) 
             
             if epoch_id % self.log_interval == 0:
                 self.log_train(train_infos,epoch_id)
 
             if epoch_id % self.save_interval == 0:
                 self.save(epoch_id)
-            
-            print("epoch:",epoch_id,"/",self.num_epoch,end=' ')
-            for key,value in train_info.items():
-                print(key,":",value, end=' ')
-            for key,value in val_info.items():
-                print(key,":",value, end=' ')
-            print('')
+            print('----------------------------------------------------------------------------')
+            print("epoch:",epoch_id,"/",self.num_epoch)
+            group_id = 0
+            for tr_inf, va_inf in zip(train_infos,val_infos):
+                print("Group {}:".format(group_id), end=' ')
+                for key,value in tr_inf.items():
+                    print(key,":",value, end=' ')
+                for key,value in va_inf.items():
+                    print(key,":",value, end=' ')
+                group_id += 1
+                print('')
 
         all_train_infos.append(train_infos)               
         return all_train_infos
