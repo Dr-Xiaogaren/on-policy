@@ -479,7 +479,9 @@ class Scenario(BaseScenario):
         # if collide
         if agent.if_collide:
             rew += -5
-
+        # if not catch in 200 step
+        if world.world_step == world.episode_length and agent.if_dead != True:
+            intrinsic_rew += 10
         # punish every step
         rew += -0.2
         return intrinsic_rew if world.use_intrinsic_reward else rew
@@ -504,9 +506,13 @@ class Scenario(BaseScenario):
             if ag.if_dead:
                 rew += 200
                 intrinsic_rew += 10
+            # if not catch in 200 step
+            if world.world_step == world.episode_length and ag.if_dead != True:
+                intrinsic_rew += -10
         # if collide
         if agent.if_collide:
             rew += -5
+        
 
         # punish every step
         rew += -0.2
