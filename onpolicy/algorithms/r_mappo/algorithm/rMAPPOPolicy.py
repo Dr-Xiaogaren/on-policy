@@ -1,5 +1,5 @@
 import torch
-from onpolicy.algorithms.r_mappo.algorithm.r_actor_critic import R_Actor, R_Critic, R_CNNActor, R_CNNCritic
+from onpolicy.algorithms.r_mappo.algorithm.r_actor_critic import R_Actor, R_Critic, R_CNNActor, R_CNNCritic, CNNActorAndCritic
 from onpolicy.utils.util import update_linear_schedule
 
 
@@ -25,8 +25,10 @@ class R_MAPPOPolicy:
         self.share_obs_space = cent_obs_space
         self.act_space = act_space
 
-        self.actor = R_CNNActor(args, self.obs_space, self.act_space, self.device)
-        self.critic = R_CNNCritic(args, self.share_obs_space, self.device)
+        self.actor_critic = CNNActorAndCritic(args,self.obs_space,self.share_obs_space, self.act_space, self.device)
+
+        self.actor = self.actor_critic.actor
+        self.critic = self.actor_critic.critic
 
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(),
                                                 lr=self.lr, eps=self.opti_eps,

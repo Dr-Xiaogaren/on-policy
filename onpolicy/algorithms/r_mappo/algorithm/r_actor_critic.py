@@ -173,7 +173,7 @@ class R_CNNCritic(nn.Module):
     :param cent_obs_space: (gym.Space) (centralized) observation space.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
-    def __init__(self, args, cent_obs_space, device=torch.device("cpu")):
+    def __init__(self, args, CNNbase, FCbase, obs_space, cent_obs_space, device=torch.device("cpu")):
         super(R_CNNCritic, self).__init__()
         self.hidden_size = args.hidden_size
 
@@ -187,14 +187,18 @@ class R_CNNCritic(nn.Module):
 
         cent_obs_shape = get_shape_from_obs_space(cent_obs_space)
         
-        size_for_fc = cent_obs_shape["one-dim"].shape[0]
-        self.num_channel = cent_obs_shape["two-dim"].shape[0]
-        self.obs_height = cent_obs_shape["two-dim"].shape[1]
+        obs_shape = get_shape_from_obs_space(obs_space)
+        size_for_fc = obs_shape["one-dim"].shape[0]
+        self.obs_height = obs_shape["two-dim"].shape[1]
+        self.num_channel = obs_shape["two-dim"].shape[0]
         self.size_for_fc = size_for_fc
-        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
-        self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
+        self.num_agents = cent_obs_shape["two-dim"].shape[0] // obs_shape["two-dim"].shape[0]
+        assert self.num_agents == cent_obs_shape["one-dim"].shape[0] // obs_shape["one-dim"].shape[0]
 
-        merge_input_size = self.hidden_size + self.CNNbase.output_size
+        self.CNNbase = CNNbase
+        self.FCbase = FCbase
+
+        merge_input_size = self.num_agents*(self.hidden_size + self.CNNbase.output_size)
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
 
@@ -229,6 +233,8 @@ class R_CNNCritic(nn.Module):
         # encode respectively      
         critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
         critic_features_from_fc = self.FCbase(cent_obs_for_fc)
+        critic_features_from_cnn = critic_features_from_cnn.reshape(-1,self.num_agents*critic_features_from_cnn.size(-1))
+        critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents*critic_features_from_fc.size(-1))
         # concat and merge
         critic_features = self.MergeLayer(torch.cat([critic_features_from_cnn, critic_features_from_fc],dim=1))
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
@@ -245,12 +251,11 @@ class R_CNNActor(nn.Module):
     :param action_space: (gym.Space) action space.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
-    def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
+    def __init__(self, args, CNNbase, FCbase, obs_space, action_space, device=torch.device("cpu")):
         super(R_CNNActor, self).__init__()
 
         self.hidden_size = args.hidden_size
         self.obs_height = args.obs_map_size
-        self.num_channel = args.num_agents + 1
         
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal
@@ -266,8 +271,8 @@ class R_CNNActor(nn.Module):
         self.num_channel = obs_shape["two-dim"].shape[0]
         self.size_for_fc = size_for_fc
 
-        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
-        self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
+        self.CNNbase = CNNbase
+        self.FCbase = FCbase
 
         merge_input_size = self.hidden_size + self.CNNbase.output_size
 
@@ -357,3 +362,21 @@ class R_CNNActor(nn.Module):
 
         return action_log_probs, dist_entropy
 
+
+class CNNActorAndCritic(nn.Module):
+    def __init__(self,args, obs_space, cent_obs_space,action_space, device):
+        super(CNNActorAndCritic, self).__init__()
+        self.hidden_size = args.hidden_size
+        obs_shape = get_shape_from_obs_space(obs_space)
+        self.obs_height = obs_shape["two-dim"].shape[1]
+        self.num_channel = obs_shape["two-dim"].shape[0]
+        size_for_fc = obs_shape["one-dim"].shape[0]
+        self.size_for_fc = size_for_fc
+
+        self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
+        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
+
+        self.actor = R_CNNActor(args,self.CNNbase,self.FCbase, obs_space, action_space, device=device)
+        self.critic = R_CNNCritic(args,self.CNNbase,self.FCbase, obs_space, cent_obs_space, device=device)
+
+        self.to(device)

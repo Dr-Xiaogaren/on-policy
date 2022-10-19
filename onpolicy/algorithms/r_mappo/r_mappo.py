@@ -136,6 +136,7 @@ class R_MAPPO():
         policy_loss = policy_action_loss
 
         self.policy.actor_optimizer.zero_grad()
+        self.policy.critic_optimizer.zero_grad()
 
         if update_actor:
             (policy_loss - dist_entropy * self.entropy_coef).backward()
@@ -145,12 +146,12 @@ class R_MAPPO():
         else:
             actor_grad_norm = get_gard_norm(self.policy.actor.parameters())
 
-        self.policy.actor_optimizer.step()
+        
 
         # critic update
         value_loss = self.cal_value_loss(values, value_preds_batch, return_batch, active_masks_batch)
 
-        self.policy.critic_optimizer.zero_grad()
+        
 
         (value_loss * self.value_loss_coef).backward()
 
@@ -158,7 +159,8 @@ class R_MAPPO():
             critic_grad_norm = nn.utils.clip_grad_norm_(self.policy.critic.parameters(), self.max_grad_norm)
         else:
             critic_grad_norm = get_gard_norm(self.policy.critic.parameters())
-
+        
+        self.policy.actor_optimizer.step()
         self.policy.critic_optimizer.step()
 
         return value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights
