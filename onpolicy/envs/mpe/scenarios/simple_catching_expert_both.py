@@ -72,10 +72,10 @@ class ExpWorld(World):
 
         return np.array([x,y], dtype=int) 
 
-    def check_obstacle_collision(self, entity):
+    def check_obstacle_collision(self, entity, scale=1):
         # check if collide with obstacle
         # inflate the obstacle
-        contact_margin = entity.size
+        contact_margin = entity.size * scale
         selem = skimage.morphology.disk(int(contact_margin/self.trav_map_resolution))
         obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
         entity_index = self.world_to_grid(entity.state.p_pos)
@@ -194,6 +194,7 @@ class ExpWorld(World):
         for i, entity in enumerate(self.entities):
             if not entity.movable:
                 continue
+            old_entity_vel = np.copy(entity.state.p_vel)
             entity.state.p_vel = entity.state.p_vel * (1 - self.damping)
             if (p_force[i] is not None):
                 entity.state.p_vel += (p_force[i] / entity.mass) * self.dt
@@ -206,9 +207,10 @@ class ExpWorld(World):
             # if the action won't make agent get rid of collision, agent will not move anymore
             old_entity_pos = np.copy(entity.state.p_pos)
             entity.state.p_pos += entity.state.p_vel * self.dt
-            if entity.if_collide and self.check_obstacle_collision(entity):
+            if self.check_obstacle_collision(entity):
                 entity.state.p_pos = old_entity_pos
-                entity.state.vel = 0
+                entity.state.vel = old_entity_vel
+                entity.collide_punish = True
 
     def get_virtual_force(self, agent):
         # get expert action of prey
@@ -314,7 +316,7 @@ class Scenario(BaseScenario):
             agent.silent = True
             agent.adversary = True if i < num_adversaries else False
             agent.size = 0.2 if agent.adversary else 0.2
-            agent.accel = 3.0 if agent.adversary else 4.0
+            agent.accel = 10.0 if agent.adversary else 10.0
             #agent.accel = 20.0 if agent.adversary else 25.0
             agent.max_speed = 1.0 if agent.adversary else 1.0
             agent.grid_index = None
@@ -322,6 +324,7 @@ class Scenario(BaseScenario):
             agent.rotation_stepsize = math.pi/6
             agent.last_pos = None # pos in last time step
             agent.if_dead = False
+            agent.collide_punish = False
 
         # make initial conditions
         self.reset_world(world)
@@ -401,6 +404,7 @@ class Scenario(BaseScenario):
             agent.orientation = np.random.random()*math.pi*2
             agent.if_collide = False
             agent.if_dead = False
+            agent.collide_punish = False
 
 
         for i, landmark in enumerate(world.landmarks):
@@ -477,11 +481,9 @@ class Scenario(BaseScenario):
             rew -= 200
             intrinsic_rew += -10
         # if collide
-        if agent.if_collide:
+        if agent.collide_punish:
             rew += -5
-        # if not catch in 200 step
-        if world.world_step == world.episode_length and agent.if_dead != True:
-            intrinsic_rew += 10
+
         # punish every step
         rew += -0.2
         return intrinsic_rew if world.use_intrinsic_reward else rew
@@ -506,13 +508,9 @@ class Scenario(BaseScenario):
             if ag.if_dead:
                 rew += 200
                 intrinsic_rew += 10
-            # if not catch in 200 step
-            if world.world_step == world.episode_length and ag.if_dead != True:
-                intrinsic_rew += -10
         # if collide
-        if agent.if_collide:
+        if agent.collide_punish:
             rew += -5
-        
 
         # punish every step
         rew += -0.2
@@ -581,6 +579,7 @@ class Scenario(BaseScenario):
     def post_step(self, world):
         for agent in world.agents:
             agent.last_pos = np.copy(agent.state.p_pos)
+            agent.collide_punish = False
     
 
     def if_done(self, agent, world):
@@ -631,7 +630,7 @@ def main():
             one_action = [0,0,1,0,0]
             action = []
             for j in range(4):
-                # random.shuffle(one_action)
+                random.shuffle(one_action)
                 action.append(copy.copy(one_action))
             obs_n, reward_n, done_n, info_n = env.step(action, mode=args.step_mode)
             # print("reward_n:",reward_n)
