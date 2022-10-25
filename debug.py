@@ -2,7 +2,8 @@ from cgi import print_environ
 import numpy as np
 import torch
 
-x = torch.tensor([[0.99,0.1,0.0,0.0,0.0]])
-target = torch.tensor([0])
-loss = torch.nn.CrossEntropyLoss()(x, target)
+loss = torch.nn.MSELoss(reduction='sum')
+input = torch.rand(3, 5, requires_grad=True)
+target = torch.rand(3, 5)
+output = loss(input, target)
 print(loss)

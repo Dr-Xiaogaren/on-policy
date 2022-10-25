@@ -72,10 +72,10 @@ class ExpWorld(World):
 
         return np.array([x,y], dtype=int) 
 
-    def check_obstacle_collision(self, entity, scale=1):
+    def check_obstacle_collision(self, entity):
         # check if collide with obstacle
         # inflate the obstacle
-        contact_margin = entity.size * scale
+        contact_margin = entity.size
         selem = skimage.morphology.disk(int(contact_margin/self.trav_map_resolution))
         obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
         entity_index = self.world_to_grid(entity.state.p_pos)
@@ -187,6 +187,11 @@ class ExpWorld(World):
                 orientation = np.array([math.cos(agent.orientation), math.sin(agent.orientation) ])
                 p_force[i] = (
                     agent.mass * agent.accel if agent.accel is not None else agent.mass) * agent.action.u[0] * orientation + noise
+                
+                force_from_wall = self.get_virtual_force_from_wall(agent)*agent.mass * agent.accel*3 if agent.accel is not None else 3*agent.mass
+
+                if np.linalg.norm(force_from_wall)>0:
+                    p_force[i] += force_from_wall
 
         return p_force
 
@@ -194,7 +199,6 @@ class ExpWorld(World):
         for i, entity in enumerate(self.entities):
             if not entity.movable:
                 continue
-            old_entity_vel = np.copy(entity.state.p_vel)
             entity.state.p_vel = entity.state.p_vel * (1 - self.damping)
             if (p_force[i] is not None):
                 entity.state.p_vel += (p_force[i] / entity.mass) * self.dt
@@ -207,10 +211,9 @@ class ExpWorld(World):
             # if the action won't make agent get rid of collision, agent will not move anymore
             old_entity_pos = np.copy(entity.state.p_pos)
             entity.state.p_pos += entity.state.p_vel * self.dt
-            if self.check_obstacle_collision(entity):
+            if entity.if_collide and self.check_obstacle_collision(entity):
                 entity.state.p_pos = old_entity_pos
-                entity.state.vel = old_entity_vel
-                entity.collide_punish = True
+                entity.state.vel = 0
 
     def get_virtual_force(self, agent):
         # get expert action of prey
@@ -297,6 +300,40 @@ class ExpWorld(World):
         
         return action
 
+    def get_virtual_force_from_wall(self,agent):
+        force_from_wall = np.zeros((self.dim_c,))
+        max_distance = agent.size*2
+
+        # calculate the force from wall
+        detect_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
+                       math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
+        distance_set = np.ones((len(detect_degree),))*max_distance
+        detect_stepsize = 0.03
+        max_detect_step = int(max_distance/detect_stepsize)
+        for i, degree in enumerate(detect_degree):
+            for steps in range(1,max_detect_step):
+                # shift location
+                shift_vector = detect_stepsize*steps*np.array([math.cos(degree), math.sin(degree)])
+                # if np.linalg.norm(shift_vector) > np.min(distance_set):
+                #     distance_set[i] = np.linalg.norm(shift_vector)
+                #     break
+                shift_loc = agent.state.p_pos + shift_vector
+                shift_loc_grid_index = self.world_to_grid(shift_loc)
+                if self.trav_map[shift_loc_grid_index[0]][shift_loc_grid_index[1]]:
+                    distance_set[i] = np.linalg.norm(shift_vector)
+                    break
+        # min_dis_to_wall = np.min(distance_set)
+        # min_dis_degree = detect_degree[np.argmin(distance_set)]
+        # force_from_wall = - max_distance/min_dis_to_wall * np.array([math.cos(min_dis_degree), math.sin(min_dis_degree)])
+
+        k = agent.size*1.5
+
+        for dis_degree, dis_to_wall in zip(detect_degree, distance_set.tolist()):
+            penetration = -np.log(dis_to_wall/k)+1 if dis_to_wall<= k else 0
+            force_from_wall += np.array([math.cos(dis_degree), math.sin(dis_degree)]) * penetration
+        
+        return -force_from_wall
+
 
 class Scenario(BaseScenario):
     def make_world(self, args):
@@ -316,7 +353,7 @@ class Scenario(BaseScenario):
             agent.silent = True
             agent.adversary = True if i < num_adversaries else False
             agent.size = 0.2 if agent.adversary else 0.2
-            agent.accel = 10.0 if agent.adversary else 10.0
+            agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
             agent.max_speed = 1.0 if agent.adversary else 1.0
             agent.grid_index = None
@@ -324,7 +361,6 @@ class Scenario(BaseScenario):
             agent.rotation_stepsize = math.pi/6
             agent.last_pos = None # pos in last time step
             agent.if_dead = False
-            agent.collide_punish = False
 
         # make initial conditions
         self.reset_world(world)
@@ -404,7 +440,6 @@ class Scenario(BaseScenario):
             agent.orientation = np.random.random()*math.pi*2
             agent.if_collide = False
             agent.if_dead = False
-            agent.collide_punish = False
 
 
         for i, landmark in enumerate(world.landmarks):
@@ -481,7 +516,7 @@ class Scenario(BaseScenario):
             rew -= 200
             intrinsic_rew += -10
         # if collide
-        if agent.collide_punish:
+        if agent.if_collide:
             rew += -5
 
         # punish every step
@@ -509,7 +544,7 @@ class Scenario(BaseScenario):
                 rew += 200
                 intrinsic_rew += 10
         # if collide
-        if agent.collide_punish:
+        if agent.if_collide:
             rew += -5
 
         # punish every step
@@ -579,7 +614,6 @@ class Scenario(BaseScenario):
     def post_step(self, world):
         for agent in world.agents:
             agent.last_pos = np.copy(agent.state.p_pos)
-            agent.collide_punish = False
     
 
     def if_done(self, agent, world):
@@ -627,10 +661,10 @@ def main():
         env.reset()
         frames = []
         for i in range(200):
-            one_action = [0,0,1,0,0]
+            one_action = [1,0,0,0,0]
             action = []
             for j in range(4):
-                random.shuffle(one_action)
+                # random.shuffle(one_action)
                 action.append(copy.copy(one_action))
             obs_n, reward_n, done_n, info_n = env.step(action, mode=args.step_mode)
             # print("reward_n:",reward_n)

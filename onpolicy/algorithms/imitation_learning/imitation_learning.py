@@ -52,7 +52,7 @@ class R_MAPPO_ForBC():
                                                     masks)
 
 
-        policy_loss = nn.CrossEntropyLoss()(action_probs, actions_batch).sum()
+        policy_loss = nn.MSELoss()(action_probs, actions_batch)
 
         self.policy.actor_optimizer.zero_grad()
 
@@ -131,7 +131,7 @@ class R_MAPPO_ForBC():
                                                         rnn_states_actor,
                                                         masks)           
             # update network
-            policy_loss = nn.CrossEntropyLoss()(action_probs, actions_batch).sum()
+            policy_loss = nn.MSELoss()(action_probs, actions_batch)
 
             val_info['val_loss'] += policy_loss.item()
         num_updates = len(dataset.train_loader)
