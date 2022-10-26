@@ -4,7 +4,7 @@ scenario="simple_catching_expert_both"  # simple_speaker_listener # simple_refer
 num_landmarks=0
 num_agents=4
 algo="rmappo"
-exp="EnvV2_TargetSpeed1.0_Egocentric_One-Mask_48_Nocollide_ForceV2"
+exp="EnvV2_TargetSpeed1.0_Egocentric_One-Mask_48_Nocollide_ForceV2_Check"
 seed_max=1
 step_mode="none" # assert mode == expert_adversary or  expert_both or  expert_prey or  none
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
