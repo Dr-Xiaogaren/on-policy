@@ -8,7 +8,7 @@ exp="EnvV2_TargetSpeed1.0_Egocentric_One-Mask_48_IntrinsicRW"
 seed_max=1
 use_intrinsic_reward=True
 model_dir="/workspace/tmp/pretrained_data"
-load_model_ep=250
+load_model_ep=300
 step_mode="none" # assert mode == expert_adversary or  expert_both or  expert_prey or  none
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;

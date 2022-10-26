@@ -76,28 +76,25 @@ class ExpWorld(World):
         # check if collide with obstacle
         # inflate the obstacle
         contact_margin = entity.size
-        selem = skimage.morphology.disk(int(contact_margin/self.trav_map_resolution))
-        obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
-        entity_index = self.world_to_grid(entity.state.p_pos)
-
-        # check if colliding with obstacle, collide threthold is 1 grid
+        shift_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
+                       math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
         if_collide = False
-        x1 = max(0, entity_index[0]-1)
-        x2 = min(obstacle_grid.shape[0]-1, entity_index[0]+1)
-        y1 = max(0, entity_index[1]-1)
-        y2 = min(obstacle_grid.shape[1]-1, entity_index[1]+1)
-        if np.sum(obstacle_grid[x1:x2,y1:y2])>2:
-            if_collide = True
+        for degree in shift_degree:
+            shift_loc = entity.state.p_pos + contact_margin*np.array([math.sin(degree),math.cos(degree)])
+            shift_index = self.world_to_grid(shift_loc)
+            if self.trav_map[shift_index[0]][shift_index[1]]:
+                if_collide = True
+
         return if_collide
     
     def check_if_dead(self, entity):
         # check if agent is no way out
         pos = np.copy(entity.state.p_pos)
-        shift_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
-                       math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
-        shift_margin = 0.3
+        shift_degree = [0, entity.rotation_stepsize, -entity.rotation_stepsize,math.pi]
+        shift_margin = entity.max_speed*self.dt
         collide_num = 0
-        for shift in shift_degree:
+        for shift_bias in shift_degree:
+            shift = (entity.orientation + shift_bias)%(2*math.pi)
             entity.state.p_pos = pos +  np.array([math.sin(shift),math.cos(shift)])*shift_margin
             if self.check_obstacle_collision(entity):
                 collide_num += 1
@@ -670,16 +667,16 @@ def main():
             obs_n, reward_n, done_n, info_n = env.step(action, mode=args.step_mode)
             # print("reward_n:",reward_n)
             # print("done:",done_n)
-            # img = env.render()
+            img = env.render()
 
             # agent_0_obs = (1-obs_n[-1]["two-dim"].transpose(1,2,0))*255
             # img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.,args.trav_map_size))[1]
-            # frames.append(img)
+            frames.append(img)
             # for rw, ag in zip(reward_n,env.agents):
             #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
             # cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
             # cv2.imwrite("/workspace/tmp/image/agent_0_{}.png".format(str(i)), agent_0_obs)
-            # imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.07)
+            imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.07)
             # print(i,"orien",env.agents[-1].orientation)
         step_ends = time.time()
     end = time.time()
