@@ -76,18 +76,15 @@ class ExpWorld(World):
         # check if collide with obstacle
         # inflate the obstacle
         contact_margin = entity.size
-        selem = skimage.morphology.disk(int(contact_margin/self.trav_map_resolution))
-        obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
-        entity_index = self.world_to_grid(entity.state.p_pos)
-
-        # check if colliding with obstacle, collide threthold is 1 grid
+        shift_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
+                       math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
         if_collide = False
-        x1 = max(0, entity_index[0]-1)
-        x2 = min(obstacle_grid.shape[0]-1, entity_index[0]+1)
-        y1 = max(0, entity_index[1]-1)
-        y2 = min(obstacle_grid.shape[1]-1, entity_index[1]+1)
-        if np.sum(obstacle_grid[x1:x2,y1:y2])>2:
-            if_collide = True
+        for degree in shift_degree:
+            shift_loc = entity.state.p_pos + contact_margin*np.array([math.sin(degree),math.cos(degree)])
+            shift_index = self.world_to_grid(shift_loc)
+            if self.trav_map[shift_index[0]][shift_index[1]]:
+                if_collide = True
+
         return if_collide
     
     def check_if_dead(self, entity):
