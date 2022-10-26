@@ -194,6 +194,7 @@ class ExpWorld(World):
         for i, entity in enumerate(self.entities):
             if not entity.movable:
                 continue
+            old_entity_vel = np.copy(entity.state.p_vel)
             entity.state.p_vel = entity.state.p_vel * (1 - self.damping)
             if (p_force[i] is not None):
                 entity.state.p_vel += (p_force[i] / entity.mass) * self.dt
@@ -206,9 +207,10 @@ class ExpWorld(World):
             # if the action won't make agent get rid of collision, agent will not move anymore
             old_entity_pos = np.copy(entity.state.p_pos)
             entity.state.p_pos += entity.state.p_vel * self.dt
-            if entity.if_collide and self.check_obstacle_collision(entity):
+            if self.check_obstacle_collision(entity):
                 entity.state.p_pos = old_entity_pos
-                entity.state.vel = 0
+                entity.state.vel = old_entity_vel
+                entity.collide_punish = True
 
     def get_virtual_force(self, agent):
         # get expert action of prey
@@ -322,6 +324,7 @@ class Scenario(BaseScenario):
             agent.rotation_stepsize = math.pi/6
             agent.last_pos = None # pos in last time step
             agent.if_dead = False
+            agent.collide_punish = False
 
         # make initial conditions
         self.reset_world(world)
@@ -401,6 +404,7 @@ class Scenario(BaseScenario):
             agent.orientation = np.random.random()*math.pi*2
             agent.if_collide = False
             agent.if_dead = False
+            agent.collide_punish = False
 
 
         for i, landmark in enumerate(world.landmarks):
@@ -477,7 +481,7 @@ class Scenario(BaseScenario):
             rew -= 200
             intrinsic_rew += -10
         # if collide
-        if agent.if_collide:
+        if agent.collide_punish:
             rew += -5
 
         # punish every step
@@ -505,7 +509,7 @@ class Scenario(BaseScenario):
                 rew += 200
                 intrinsic_rew += 10
         # if collide
-        if agent.if_collide:
+        if agent.collide_punish:
             rew += -5
 
         # punish every step
@@ -575,6 +579,7 @@ class Scenario(BaseScenario):
     def post_step(self, world):
         for agent in world.agents:
             agent.last_pos = np.copy(agent.state.p_pos)
+            agent.collide_punish = False
     
 
     def if_done(self, agent, world):
@@ -622,7 +627,7 @@ def main():
         env.reset()
         frames = []
         for i in range(200):
-            one_action = [0,0,1,0,0]
+            one_action = [1,0,0,0,0]
             action = []
             for j in range(4):
                 # random.shuffle(one_action)
@@ -630,16 +635,16 @@ def main():
             obs_n, reward_n, done_n, info_n = env.step(action, mode=args.step_mode)
             # print("reward_n:",reward_n)
             # print("done:",done_n)
-            img = env.render()
+            # img = env.render()
 
             # agent_0_obs = (1-obs_n[-1]["two-dim"].transpose(1,2,0))*255
             # img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.,args.trav_map_size))[1]
-            frames.append(img)
+            #frames.append(img)
             # for rw, ag in zip(reward_n,env.agents):
             #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
             # cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
             # cv2.imwrite("/workspace/tmp/image/agent_0_{}.png".format(str(i)), agent_0_obs)
-            imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.07)
+            # imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.07)
             # print(i,"orien",env.agents[-1].orientation)
     end = time.time()
     print("fps:", 300/(end-start))
