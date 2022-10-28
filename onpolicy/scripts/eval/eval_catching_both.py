@@ -169,13 +169,12 @@ def main(args):
         eval_episode_rewards_good = []
         eval_episode_rewards_bad = []
         all_frames = []
-
-        if all_args.save_gifs:
-                image = single_env.render()
-                all_frames.append(image)
-         
+    
         # reset
         eval_obs = single_env.reset()
+        if all_args.save_gifs:
+            image = single_env.render()
+            all_frames.append(image)
         eval_obs_dict = dict()
         # transpose the "key" dim and array dim
         for key in all_args.observation_dict:

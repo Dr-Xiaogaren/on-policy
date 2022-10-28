@@ -510,6 +510,8 @@ class CatchingEnv(MultiAgentEnv):
         
         for ag, rw in zip(self.agents, self.render_rw):
                 cv2.putText(colored, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
+                if ag.if_dead:
+                    cv2.putText(colored, "Catched!", (50, 50), 1, 3, (255, 0, 0), 4, cv2.LINE_AA)
         
         return colored
 
