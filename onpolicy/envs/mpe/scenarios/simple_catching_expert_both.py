@@ -206,7 +206,7 @@ class ExpWorld(World):
             entity.state.p_pos += entity.state.p_vel * self.dt
             if self.check_obstacle_collision(entity):
                 entity.state.p_pos = old_entity_pos
-                entity.state.p_vel = old_entity_vel
+                # entity.state.p_vel = old_entity_vel
                 entity.collide_punish = True
 
     def get_virtual_force(self, agent):
