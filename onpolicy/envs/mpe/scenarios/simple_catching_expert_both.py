@@ -13,8 +13,9 @@ import random
 import math
 import imageio
 import copy
-
+from numpy import ma
 from torch import arcsin
+import skfmm
 class ExpWorld(World):
     def __init__(self, args):
         super().__init__()
@@ -204,9 +205,9 @@ class ExpWorld(World):
             # if the action won't make agent get rid of collision, agent will not move anymore
             old_entity_pos = np.copy(entity.state.p_pos)
             entity.state.p_pos += entity.state.p_vel * self.dt
-            if self.check_obstacle_collision(entity):
+            if self.if_will_collide(entity):
                 entity.state.p_pos = old_entity_pos
-                entity.state.vel = old_entity_vel
+                # entity.state.p_vel = old_entity_vel
                 entity.collide_punish = True
 
     def get_virtual_force(self, agent):
@@ -293,6 +294,125 @@ class ExpWorld(World):
                 action = [0,1,0,0,0] # turn left
         
         return action
+
+    def get_voronoi_based_action(self, agent):
+        num_agents = len(self.agents)
+        FMM_result_map = np.zeros((num_agents,*self.trav_map.shape))
+        # selem = skimage.morphology.disk(int(agent.size/self.trav_map_resolution))
+        # obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
+        obstacle_grid = self.trav_map
+        trav_map = 1 - obstacle_grid  # free cell is 1, obstacle is zero
+        for i, ag in enumerate(self.agents): 
+            # caculate the travel distance from all free cells to agent       
+            traversible_ma = ma.masked_values(trav_map, 0)
+            traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+            distance_map = skfmm.distance(traversible_ma,dx=ag.max_speed)
+            distance_map = ma.filled(distance_map,np.max(distance_map)+1)
+            FMM_result_map[i] = np.copy(distance_map)
+        # the voronoi
+        Voronoi_map = np.argmin(FMM_result_map, axis=0) - obstacle_grid
+        self.Voronoi_map = Voronoi_map
+
+        action_list = [[1,0,0,0,0],[0,0,0,0,1],[0,0,1,0,0],[0,1,0,0,0]]
+        change_of_safe_reachable_set = []
+        distance_to_prey = []
+        FMM_result_map_new = np.zeros((num_agents,*self.trav_map.shape))
+        for action in action_list:
+            new_pos, if_collide = self.virtual_step(agent,action)
+            if not if_collide:
+                for i, ag in enumerate(self.agents): 
+                    # caculate the travel distance from all free cells to agent       
+                    traversible_ma = ma.masked_values(trav_map, 0)
+                    if ag is agent:
+                        new_index = self.world_to_grid(new_pos)
+                        traversible_ma[new_index[0],new_index[1]] = 0
+                    else:
+                        traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+                    
+                    distance_map = skfmm.distance(traversible_ma,dx=ag.max_speed)
+                    distance_map = ma.filled(distance_map,np.max(distance_map)+1)
+                    FMM_result_map_new[i] = np.copy(distance_map)
+                    if  not ag.adversary:
+                        new_index = self.world_to_grid(new_pos)
+                        distance_to_prey.append(distance_map[new_index[0],new_index[1]])
+
+                Voronoi_map_new = np.argmin(FMM_result_map_new, axis=0) - obstacle_grid
+                area_change = np.sum(Voronoi_map_new == (num_agents-1)) - np.sum(Voronoi_map == (num_agents-1))
+                change_of_safe_reachable_set.append(area_change)
+            else:
+                change_of_safe_reachable_set.append(np.sum(trav_map))
+                if not ag.adversary:
+                    new_index = self.world_to_grid(new_pos)
+                    distance_to_prey.append(distance_map[new_index[0],new_index[1]])
+
+        optimal_action_index = change_of_safe_reachable_set.index(min(change_of_safe_reachable_set))
+        optimal_action = action_list[optimal_action_index]
+
+        # if agent has no control line with prey
+        if sum(change_of_safe_reachable_set) == len(action_list)*min(change_of_safe_reachable_set):
+            optimal_action_index = distance_to_prey.index(min(distance_to_prey))
+            optimal_action = action_list[optimal_action_index]
+
+        return optimal_action
+
+    
+    def virtual_step(self, agent, action):
+        if_collide = False
+        agent_loc = np.copy(agent.state.p_pos)
+        agent_orien = np.copy(agent.orientation)
+        fw_acceleration = 1.0
+
+        # apply rotation
+        if action == [0,0,1,0,0]:
+            agent_orien -= agent.rotation_stepsize
+            fw_acceleration = 0.8
+        elif action == [0,1,0,0,0]:
+            agent_orien += agent.rotation_stepsize
+            fw_acceleration = 0.8  
+        elif action == [1,0,0,0,0]:
+            fw_acceleration = 1.0
+        elif action == [0,0,0,0,1]:
+            fw_acceleration = -2.0   
+        # apply action force
+        orientation = np.array([math.cos(agent_orien), math.sin(agent_orien) ])
+        p_force = (agent.mass * agent.accel if agent.accel is not None else agent.mass) * fw_acceleration * orientation
+
+        # apply env force
+        for b, entity_b in enumerate(self.entities):
+            if entity_b is agent:
+                continue
+            [f_a, f_b] = self.get_entity_collision_force(self.agents.index(agent), b)
+            if(f_a is not None):
+                p_force = f_a + p_force
+        
+        # apply force
+        p_vel = agent.state.p_vel * (1 - self.damping)
+        p_vel += (p_force / agent.mass) * self.dt
+        if agent.max_speed is not None:
+            speed = np.sqrt(
+                np.square(agent.state.p_vel[0]) + np.square(agent.state.p_vel[1]))
+            if speed > agent.max_speed:
+                p_vel = agent.state.p_vel / np.sqrt(np.square(agent.state.p_vel[0]) +
+                                                                    np.square(agent.state.p_vel[1])) * agent.max_speed
+        # if the action won't make agent get rid of collision, agent will not move anymore
+        p_pos = agent.state.p_pos + p_vel * self.dt
+
+        origin_p_pos = np.copy(agent.state.p_pos)
+        agent.state.p_pos = p_pos
+        if_collide = self.check_obstacle_collision(agent)
+        agent.state.p_pos = origin_p_pos
+
+        return p_pos, if_collide
+
+    def if_will_collide(self,agent):
+        action_list = [[1,0,0,0,0],[0,0,0,0,1],[0,0,1,0,0],[0,1,0,0,0]]
+        will_collide = self.check_obstacle_collision(agent)
+        for action in action_list:
+            new_pos, if_collide = self.virtual_step(agent,action)
+            will_collide = will_collide and if_collide
+        
+        return will_collide
+
 
 
 class Scenario(BaseScenario):
@@ -612,6 +732,7 @@ def main():
     args.env_name = "MPE"
     args.scenario_name = "simple_catching_expert_both"
     args.num_agents = 4
+    args.step_mode = "voronoi_based"
     scenario = load(args.scenario_name + ".py").Scenario()
     # create world
     world = scenario.make_world(args)
@@ -632,16 +753,16 @@ def main():
             obs_n, reward_n, done_n, info_n = env.step(action, mode=args.step_mode)
             # print("reward_n:",reward_n)
             # print("done:",done_n)
-            # img = env.render()
+            img = env.render()
 
             # agent_0_obs = (1-obs_n[-1]["two-dim"].transpose(1,2,0))*255
             # img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.,args.trav_map_size))[1]
-            #frames.append(img)
+            frames.append(img)
             # for rw, ag in zip(reward_n,env.agents):
             #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
             # cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
             # cv2.imwrite("/workspace/tmp/image/agent_0_{}.png".format(str(i)), agent_0_obs)
-            # imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.07)
+            imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.07)
             # print(i,"orien",env.agents[-1].orientation)
     end = time.time()
     print("fps:", 300/(end-start))

@@ -297,7 +297,7 @@ def get_config():
     parser.add_argument("--max_map_size", type=int, default=1600, help="the maxsize of the loaded traversable map")
     parser.add_argument("--obs_map_size", type=int, default=48, help="the size of observed map")
     parser.add_argument("--observation_dict", type=list, default=["one-dim","two-dim"], help="the keys of observation space")
-    parser.add_argument("--step_mode", type=str, default="none", help=" assert mode == expert_adversary or mode == expert_both or mode == expert_prey or mode == none" )
+    parser.add_argument("--step_mode", type=str, default="none", help=" assert mode == expert_adversary or mode == expert_both or mode == expert_prey or mode == none or mode == voronoi_based")
     parser.add_argument("--use_intrinsic_reward", action='store_true', default=False, help="use_intrinsic_reward")
 
     # imitation learning
