@@ -186,6 +186,12 @@ class ExpWorld(World):
                 p_force[i] = (
                     agent.mass * agent.accel if agent.accel is not None else agent.mass) * agent.action.u[0] * orientation + noise
 
+                force_from_wall = self.get_virtual_force_from_wall(agent)*agent.mass * agent.accel*3 if agent.accel is not None else 3*agent.mass
+
+                if np.linalg.norm(force_from_wall)>0:
+                    p_force[i] += force_from_wall
+                    agent.collide_punish = True
+
         return p_force
 
     def integrate_state(self, p_force):
@@ -205,9 +211,9 @@ class ExpWorld(World):
             # if the action won't make agent get rid of collision, agent will not move anymore
             old_entity_pos = np.copy(entity.state.p_pos)
             entity.state.p_pos += entity.state.p_vel * self.dt
-            if self.if_will_collide(entity):
+            if self.check_obstacle_collision(entity):
                 entity.state.p_pos = old_entity_pos
-                # entity.state.p_vel = old_entity_vel
+                entity.state.p_vel = entity.state.p_vel*0
                 entity.collide_punish = True
 
     def get_virtual_force(self, agent):
@@ -306,12 +312,27 @@ class ExpWorld(World):
             # caculate the travel distance from all free cells to agent       
             traversible_ma = ma.masked_values(trav_map, 0)
             traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
-            distance_map = skfmm.distance(traversible_ma,dx=ag.max_speed)
-            distance_map = ma.filled(distance_map,np.max(distance_map)+1)
+            distance_map = skfmm.distance(traversible_ma,dx=1/ag.max_speed)
+            distance_map = ma.filled(distance_map,float("inf"))
             FMM_result_map[i] = np.copy(distance_map)
+        
         # the voronoi
         Voronoi_map = np.argmin(FMM_result_map, axis=0) - obstacle_grid
-        self.Voronoi_map = Voronoi_map
+
+        # calculate another time to delete the redundant part
+        for i, ag in enumerate(self.agents):
+            if not ag.adversary:
+                masked_area = Voronoi_map == (num_agents-1)
+                masked_area = masked_area*trav_map
+                traversible_ma = ma.masked_values(masked_area, 0)
+                traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+                distance_map = skfmm.distance(traversible_ma,dx=1/ag.max_speed)
+                distance_map = ma.filled(distance_map,float("inf"))
+                FMM_result_map[i] = np.copy(distance_map)  
+
+        Voronoi_map = np.argmin(FMM_result_map, axis=0) - obstacle_grid
+        self.Voronoi_map = Voronoi_map                    
+
 
         action_list = [[1,0,0,0,0],[0,0,0,0,1],[0,0,1,0,0],[0,1,0,0,0]]
         change_of_safe_reachable_set = []
@@ -330,13 +351,27 @@ class ExpWorld(World):
                         traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
                     
                     distance_map = skfmm.distance(traversible_ma,dx=ag.max_speed)
-                    distance_map = ma.filled(distance_map,np.max(distance_map)+1)
+                    distance_map = ma.filled(distance_map,float("inf"))
                     FMM_result_map_new[i] = np.copy(distance_map)
                     if  not ag.adversary:
                         new_index = self.world_to_grid(new_pos)
                         distance_to_prey.append(distance_map[new_index[0],new_index[1]])
 
                 Voronoi_map_new = np.argmin(FMM_result_map_new, axis=0) - obstacle_grid
+
+                        # calculate another time to delete the redundant part
+                for i, ag in enumerate(self.agents):
+                    if not ag.adversary:
+                        masked_area = Voronoi_map_new == (num_agents-1)
+                        masked_area = masked_area*trav_map
+                        traversible_ma = ma.masked_values(masked_area, 0)
+                        traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+                        distance_map = skfmm.distance(traversible_ma,dx=1/ag.max_speed)
+                        distance_map = ma.filled(distance_map,float("inf"))
+                        FMM_result_map_new[i] = np.copy(distance_map)  
+
+                Voronoi_map_new = np.argmin(Voronoi_map_new, axis=0) - obstacle_grid
+    
                 area_change = np.sum(Voronoi_map_new == (num_agents-1)) - np.sum(Voronoi_map == (num_agents-1))
                 change_of_safe_reachable_set.append(area_change)
             else:
@@ -413,6 +448,39 @@ class ExpWorld(World):
         
         return will_collide
 
+    def get_virtual_force_from_wall(self,agent):
+        force_from_wall = np.zeros((self.dim_c,))
+        max_distance = agent.size*2
+
+        # calculate the force from wall
+        detect_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
+                       math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
+        distance_set = np.ones((len(detect_degree),))*max_distance
+        detect_stepsize = 0.03
+        max_detect_step = int(max_distance/detect_stepsize)
+        for i, degree in enumerate(detect_degree):
+            for steps in range(1,max_detect_step):
+                # shift location
+                shift_vector = detect_stepsize*steps*np.array([math.cos(degree), math.sin(degree)])
+                # if np.linalg.norm(shift_vector) > np.min(distance_set):
+                #     distance_set[i] = np.linalg.norm(shift_vector)
+                #     break
+                shift_loc = agent.state.p_pos + shift_vector
+                shift_loc_grid_index = self.world_to_grid(shift_loc)
+                if self.trav_map[shift_loc_grid_index[0]][shift_loc_grid_index[1]]:
+                    distance_set[i] = np.linalg.norm(shift_vector)
+                    break
+        # min_dis_to_wall = np.min(distance_set)
+        # min_dis_degree = detect_degree[np.argmin(distance_set)]
+        # force_from_wall = - max_distance/min_dis_to_wall * np.array([math.cos(min_dis_degree), math.sin(min_dis_degree)])
+
+        k = agent.size*1.5
+
+        for dis_degree, dis_to_wall in zip(detect_degree, distance_set.tolist()):
+            penetration = -np.log(dis_to_wall/k)+1 if dis_to_wall<= k else 0
+            force_from_wall += np.array([math.cos(dis_degree), math.sin(dis_degree)]) * penetration
+        
+        return -force_from_wall
 
 
 class Scenario(BaseScenario):

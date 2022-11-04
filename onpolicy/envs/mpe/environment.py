@@ -487,7 +487,7 @@ class CatchingEnv(MultiAgentEnv):
             colored = self.fill_color(colored, voronoi_ad, voronoi_palette[0])
             colored = self.fill_color(colored, voronoi_prey, voronoi_palette[1])
 
-        current_palette = [(0.6, 0.6, 0.6)]
+        current_palette = [(0.05, 0.05, 0.05)]
         colored = self.fill_color(colored, grid, current_palette[0])
 
         for agent in self.agents:
