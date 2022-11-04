@@ -185,6 +185,12 @@ class ExpWorld(World):
                 p_force[i] = (
                     agent.mass * agent.accel if agent.accel is not None else agent.mass) * agent.action.u[0] * orientation + noise
 
+                force_from_wall = self.get_virtual_force_from_wall(agent)*agent.mass * agent.accel*3 if agent.accel is not None else 3*agent.mass
+
+                if np.linalg.norm(force_from_wall)>0:
+                    p_force[i] += force_from_wall
+                    agent.collide_punish = True
+
         return p_force
 
     def integrate_state(self, p_force):
@@ -206,7 +212,7 @@ class ExpWorld(World):
             entity.state.p_pos += entity.state.p_vel * self.dt
             if self.check_obstacle_collision(entity):
                 entity.state.p_pos = old_entity_pos
-                entity.state.vel = old_entity_vel
+                entity.state.p_vel = 0*entity.state.p_vel
                 entity.collide_punish = True
 
     def get_virtual_force(self, agent):
@@ -294,6 +300,39 @@ class ExpWorld(World):
         
         return action
 
+    def get_virtual_force_from_wall(self,agent):
+        force_from_wall = np.zeros((self.dim_c,))
+        max_distance = agent.size*2
+
+        # calculate the force from wall
+        detect_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
+                       math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
+        distance_set = np.ones((len(detect_degree),))*max_distance
+        detect_stepsize = 0.03
+        max_detect_step = int(max_distance/detect_stepsize)
+        for i, degree in enumerate(detect_degree):
+            for steps in range(1,max_detect_step):
+                # shift location
+                shift_vector = detect_stepsize*steps*np.array([math.cos(degree), math.sin(degree)])
+                # if np.linalg.norm(shift_vector) > np.min(distance_set):
+                #     distance_set[i] = np.linalg.norm(shift_vector)
+                #     break
+                shift_loc = agent.state.p_pos + shift_vector
+                shift_loc_grid_index = self.world_to_grid(shift_loc)
+                if self.trav_map[shift_loc_grid_index[0]][shift_loc_grid_index[1]]:
+                    distance_set[i] = np.linalg.norm(shift_vector)
+                    break
+        # min_dis_to_wall = np.min(distance_set)
+        # min_dis_degree = detect_degree[np.argmin(distance_set)]
+        # force_from_wall = - max_distance/min_dis_to_wall * np.array([math.cos(min_dis_degree), math.sin(min_dis_degree)])
+
+        k = agent.size*1.5
+
+        for dis_degree, dis_to_wall in zip(detect_degree, distance_set.tolist()):
+            penetration = -np.log(dis_to_wall/k)+1 if dis_to_wall<= k else 0
+            force_from_wall += np.array([math.cos(dis_degree), math.sin(dis_degree)]) * penetration
+        
+        return -force_from_wall
 
 class Scenario(BaseScenario):
     def make_world(self, args):
@@ -479,10 +518,10 @@ class Scenario(BaseScenario):
             intrinsic_rew += -10
         # if collide
         if agent.collide_punish:
-            rew += -5
+            rew += -40
 
         # punish every step
-        rew += -0.2
+        rew += -0.4
         return intrinsic_rew if world.use_intrinsic_reward else rew
 
     def adversary_reward(self, agent, world):
@@ -507,10 +546,10 @@ class Scenario(BaseScenario):
                 intrinsic_rew += 10
         # if collide
         if agent.collide_punish:
-            rew += -5
+            rew += -40
 
         # punish every step
-        rew += -0.2
+        rew += -0.4
         
         return intrinsic_rew if world.use_intrinsic_reward else rew
 
