@@ -6,8 +6,8 @@ num_agents=4
 algo="rmappo"
 exp="debug"
 seed_max=1
-model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching_expert_both/rmappo/EnvV2_TargetSpeed1.0_Egocentric_One-Mask_48_CheckCNN_Nocollide_Force_ExpPrey/wandb/run-20221103_145231-92by9s9j/files"
-load_model_ep=5400
+model_dir="/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching_expert_both/rmappo/EnvV3_TargetSpeed1.0_check/wandb/run-20221108_144618-3mhde1ul/files"
+load_model_ep=4100
 num_test_episode=200
 step_mode="expert_prey" # assert mode == expert_adversary or  expert_both or  expert_prey or  none
 

@@ -10,6 +10,12 @@ def _flatten(T, N, x):
 def _cast(x):
     return x.transpose(1, 2, 0, 3).reshape(-1, *x.shape[3:])
 
+def _cast_till_agent(x):
+    return x.transpose(1, 0, 2, 3).reshape(-1, *x.shape[2:])
+
+def _flatten_till_agent(T, N, x):
+    return x.reshape(T * N, *x.shape[3:])
+
 class SharedReplayBuffer(object):
     def __init__(self, args, num_agents, obs_space, share_obs_space, act_space):
         self.episode_length = args.episode_length
@@ -388,7 +394,7 @@ class SharedReplayBuffer(object):
 
     def recurrent_generator(self, advantages, num_mini_batch, data_chunk_length):
         episode_length, n_rollout_threads, num_agents = self.rewards.shape[0:3]
-        batch_size = n_rollout_threads * episode_length * num_agents
+        batch_size = n_rollout_threads * episode_length
         data_chunks = batch_size // data_chunk_length  # [C=r*T*M/L]
         mini_batch_size = data_chunks // num_mini_batch
 
@@ -405,41 +411,41 @@ class SharedReplayBuffer(object):
             obs = {}
             for key in self.share_obs.keys():
                 if len(self.share_obs[key].shape) == 6:
-                    share_obs[key] = self.share_obs[key][:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs[key].shape[3:])
+                    share_obs[key] = self.share_obs[key][:-1].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.share_obs[key].shape[2:])
                 elif len(self.share_obs[key].shape) == 5:
-                    share_obs[key] = self.share_obs[key][:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.share_obs[key].shape[3:])
+                    share_obs[key] = self.share_obs[key][:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.share_obs[key].shape[2:])
                 else:
-                    share_obs[key] = _cast(self.share_obs[key][:-1])
+                    share_obs[key] = _cast_till_agent(self.share_obs[key][:-1])
                    
             for key in self.obs.keys():
                 if len(self.obs[key].shape) == 6:
-                    obs[key] = self.obs[key][:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs[key].shape[3:])
+                    obs[key] = self.obs[key][:-1].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.obs[key].shape[2:])
                 elif len(self.obs[key].shape) == 5:
-                    obs[key] = self.obs[key][:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.obs[key].shape[3:])
+                    obs[key] = self.obs[key][:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.obs[key].shape[2:])
                 else:
-                    obs[key] = _cast(self.obs[key][:-1])
+                    obs[key] = _cast_till_agent(self.obs[key][:-1])
         else:
             if len(self.share_obs.shape) > 4:
-                share_obs = self.share_obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.share_obs.shape[3:])
-                obs = self.obs[:-1].transpose(1, 2, 0, 3, 4, 5).reshape(-1, *self.obs.shape[3:])
+                share_obs = self.share_obs[:-1].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.share_obs.shape[2:])
+                obs = self.obs[:-1].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.obs.shape[2:])
             else:
-                share_obs = _cast(self.share_obs[:-1])
-                obs = _cast(self.obs[:-1])
+                share_obs = _cast_till_agent(self.share_obs[:-1])
+                obs = _cast_till_agent(self.obs[:-1])
 
-        actions = _cast(self.actions)
-        action_log_probs = _cast(self.action_log_probs)
-        advantages = _cast(advantages)
-        value_preds = _cast(self.value_preds[:-1])
-        returns = _cast(self.returns[:-1])
-        masks = _cast(self.masks[:-1])
-        active_masks = _cast(self.active_masks[:-1])       
+        actions = _cast_till_agent(self.actions)
+        action_log_probs = _cast_till_agent(self.action_log_probs)
+        advantages = _cast_till_agent(advantages)
+        value_preds = _cast_till_agent(self.value_preds[:-1])
+        returns = _cast_till_agent(self.returns[:-1])
+        masks = _cast_till_agent(self.masks[:-1])
+        active_masks = _cast_till_agent(self.active_masks[:-1])       
         # rnn_states = _cast(self.rnn_states[:-1])
         # rnn_states_critic = _cast(self.rnn_states_critic[:-1])
-        rnn_states = self.rnn_states[:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.rnn_states.shape[3:])
-        rnn_states_critic = self.rnn_states_critic[:-1].transpose(1, 2, 0, 3, 4).reshape(-1, *self.rnn_states_critic.shape[3:])
+        rnn_states = self.rnn_states[:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states.shape[2:])
+        rnn_states_critic = self.rnn_states_critic[:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states_critic.shape[2:])
         
         if self.available_actions is not None:
-            available_actions = _cast(self.available_actions[:-1])
+            available_actions = _cast_till_agent(self.available_actions[:-1])
 
         for indices in sampler:
 
@@ -487,9 +493,9 @@ class SharedReplayBuffer(object):
                 rnn_states_batch.append(rnn_states[ind])
                 rnn_states_critic_batch.append(rnn_states_critic[ind])
             
-            L, N = data_chunk_length, mini_batch_size
+            L, N = data_chunk_length, mini_batch_size*num_agents
 
-            # These are all from_numpys of size (L, N, Dim) 
+            # These are all from_numpys of size (L, N, num_agent, Dim) 
             if self._mixed_obs:
                 for key in share_obs_batch.keys():  
                     share_obs_batch[key] = np.stack(share_obs_batch[key], axis=1)
@@ -508,29 +514,39 @@ class SharedReplayBuffer(object):
             old_action_log_probs_batch = np.stack(old_action_log_probs_batch, axis=1)
             adv_targ = np.stack(adv_targ, axis=1)
 
-            # States is just a (N, -1) from_numpy
+            # States is just a (N, num_agent, -1) from_numpy
             rnn_states_batch = np.stack(rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
             rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
             
-            # Flatten the (L, N, ...) from_numpys to (L * N, ...)
+            # Flatten the (L, N, num_agent, ...) from_numpys to (L * N, ...)
             if self._mixed_obs:
                 for key in share_obs_batch.keys(): 
-                    share_obs_batch[key] = _flatten(L, N, share_obs_batch[key])
+                    if len(share_obs_batch[key].shape) == 6:
+                        share_obs_batch[key] = share_obs_batch[key].reshape(L*N, *share_obs_batch[key].shape[3:])
+                    elif len(share_obs_batch[key].shape) == 5:
+                        share_obs_batch[key] = share_obs_batch[key].reshape(L*N, *share_obs_batch[key].shape[3:])
+                    else:
+                        share_obs_batch[key] = _flatten_till_agent(L,N, share_obs_batch[key])
                 for key in obs_batch.keys(): 
-                    obs_batch[key] = _flatten(L, N, obs_batch[key])
+                    if len(obs_batch[key].shape) == 6:
+                        obs_batch[key] = obs_batch[key].reshape(L*N, *obs_batch[key].shape[3:])
+                    elif len(obs_batch[key].shape) == 5:
+                        obs_batch[key] = obs_batch[key].reshape(L*N, *obs_batch[key].shape[3:])
+                    else:
+                        obs_batch[key] = _flatten_till_agent(L,N, obs_batch[key])
             else:
-                share_obs_batch = _flatten(L, N, share_obs_batch)
-                obs_batch = _flatten(L, N, obs_batch)
-            actions_batch = _flatten(L, N, actions_batch)
+                share_obs_batch = _flatten_till_agent(L, N, share_obs_batch)
+                obs_batch = _flatten_till_agent(L, N, obs_batch)
+            actions_batch = _flatten_till_agent(L, N, actions_batch)
             if self.available_actions is not None:
-                available_actions_batch = _flatten(L, N, available_actions_batch)
+                available_actions_batch = _flatten_till_agent(L, N, available_actions_batch)
             else:
                 available_actions_batch = None
-            value_preds_batch = _flatten(L, N, value_preds_batch)
-            return_batch = _flatten(L, N, return_batch)
-            masks_batch = _flatten(L, N, masks_batch)
-            active_masks_batch = _flatten(L, N, active_masks_batch)
-            old_action_log_probs_batch = _flatten(L, N, old_action_log_probs_batch)
-            adv_targ = _flatten(L, N, adv_targ)
+            value_preds_batch = _flatten_till_agent(L, N, value_preds_batch)
+            return_batch = _flatten_till_agent(L, N, return_batch)
+            masks_batch = _flatten_till_agent(L, N, masks_batch)
+            active_masks_batch = _flatten_till_agent(L, N, active_masks_batch)
+            old_action_log_probs_batch = _flatten_till_agent(L, N, old_action_log_probs_batch)
+            adv_targ = _flatten_till_agent(L, N, adv_targ)
 
             yield share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
