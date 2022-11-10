@@ -510,9 +510,9 @@ class Scenario(BaseScenario):
             rew +=  diff_distance*10
         rew = rew/len(adversaries)
         # if catch
-        for a in adversaries:
-            if self.is_collision(a, agent):
-                rew -= 5
+        # for a in adversaries:
+        #     if self.is_collision(a, agent):
+        #         rew -= 5
         if agent.if_dead:
             rew -= 200
             intrinsic_rew += -10
@@ -537,10 +537,10 @@ class Scenario(BaseScenario):
             rew -=  diff_distance*10
         # if catch
         for ag in agents:
-            for adv in adversaries:
-                if self.is_collision(ag, adv):
-                    if adv.name == agent.name:
-                        rew += 5
+            # for adv in adversaries:
+            #     if self.is_collision(ag, adv):
+            #         if adv.name == agent.name:
+            #             rew += 5
             if ag.if_dead:
                 rew += 200
                 intrinsic_rew += 10
