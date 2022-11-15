@@ -599,7 +599,10 @@ class Scenario(BaseScenario):
             other_pos.append(other.state.p_pos - agent.state.p_pos)
             # vel_norm = np.linalg.norm(other.state.p_vel)
             # vel_orien = self.get_angle(other.state.p_vel)
-            other_vel.append(other.state.p_vel)
+            if other.adversary:
+                other_vel.append(other.state.p_vel)
+            else:
+                other_vel.append(np.zeros_like(other.state.p_vel))
             other_orien.append(np.array([diff_orientation,]))
         
 

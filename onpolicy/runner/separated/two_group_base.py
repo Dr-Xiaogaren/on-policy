@@ -152,7 +152,10 @@ class Runner(object):
         train_infos = []
         for group_id in range(self.num_groups):
             self.trainer[group_id].prep_training()
-            train_info = self.trainer[group_id].train(self.buffer[group_id])
+            if self.all_args.step_mode == "expert_prey" and group_id == 0:
+                train_info = self.trainer[group_id].train(self.buffer[group_id])
+            else:
+                train_info = dict()
             train_infos.append(train_info)       
             self.buffer[group_id].after_update()
 
