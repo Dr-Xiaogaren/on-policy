@@ -10,8 +10,8 @@ import numpy as np
 from pathlib import Path
 import torch
 from onpolicy.config import get_config
-from onpolicy.envs.mpe.MPE_env import MPEEnv, MPECatchingEnv, MPECatchingEnvExpert
-from onpolicy.envs.env_wrappers import SubprocVecEnv, DummyVecEnv
+from envs.mpe.MPE_env import MPEEnv, MPECatchingEnv, MPECatchingEnvExpert
+from envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 import time
 import imageio
 from tqdm import tqdm

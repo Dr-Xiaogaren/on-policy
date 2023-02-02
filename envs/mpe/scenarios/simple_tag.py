@@ -1,6 +1,6 @@
 import numpy as np
-from onpolicy.envs.mpe.core import World, Agent, Landmark
-from onpolicy.envs.mpe.scenario import BaseScenario
+from envs.mpe.core import World, Agent, Landmark
+from envs.mpe.scenario import BaseScenario
 
 class Scenario(BaseScenario):
     def make_world(self, args):

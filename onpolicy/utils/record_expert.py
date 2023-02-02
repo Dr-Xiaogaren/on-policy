@@ -142,8 +142,8 @@ def generate_expert_traj(args, env, save_path=None, n_episodes=5):
 
 def main():
     import time
-    from onpolicy.envs.mpe.environment import MultiAgentEnv, CatchingEnv, CatchingEnvExpert
-    from onpolicy.envs.mpe.scenarios import load
+    from envs.mpe.environment import MultiAgentEnv, CatchingEnv, CatchingEnvExpert
+    from envs.mpe.scenarios import load
     from onpolicy.config import get_config
     parser = get_config()
     args = parser.parse_known_args()[0]

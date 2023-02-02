@@ -3,8 +3,8 @@ from re import S
 from tabnanny import check
 from tkinter import W, constants
 import numpy as np
-from onpolicy.envs.mpe.core import World, Agent, Landmark
-from onpolicy.envs.mpe.scenario import BaseScenario
+from envs.mpe.core import World, Agent, Landmark
+from envs.mpe.scenario import BaseScenario
 from PIL import Image
 import os
 import cv2
@@ -127,7 +127,7 @@ class ExpWorld(World):
             agent.if_dead = self.check_if_dead(agent)
 
         # update state of the world
-    def step(self):
+    def step(self, mode=None):
         # zoe 20200420
         self.world_step += 1
         # set actions for scripted agents
@@ -141,7 +141,7 @@ class ExpWorld(World):
         # Rotation is performed first   
         self.integrate_rotation(rotation)
 
-        p_force = self.apply_action_force(p_force)
+        p_force = self.apply_action_force(p_force, mode)
         # apply environment forces
         p_force = self.apply_environment_force(p_force)
         # integrate physical state
@@ -176,8 +176,9 @@ class ExpWorld(World):
             agent.orientation = agent.orientation % (2*np.math.pi)
 
 
-    def apply_action_force(self, p_force):
+    def apply_action_force(self, p_force, mode):
         # set applied forces
+        assert mode == "expert_prey" or mode == "None" 
         for i, agent in enumerate(self.agents):
             if agent.movable:
                 noise = np.random.randn(
@@ -186,6 +187,11 @@ class ExpWorld(World):
                 orientation = np.array([math.cos(agent.orientation), math.sin(agent.orientation) ])
                 p_force[i] = (
                     agent.mass * agent.accel if agent.accel is not None else agent.mass) * agent.action.u[0] * orientation + noise
+                if mode == "expert_prey" and agent.adversary == False:
+                    expert_force = self.get_expert_action(agent)
+                    p_force[i] = (
+                        agent.mass * agent.accel if agent.accel is not None else agent.mass) * expert_force + noise
+
         return p_force
 
     def integrate_state(self, p_force):
@@ -207,7 +213,45 @@ class ExpWorld(World):
             if entity.if_collide and self.check_obstacle_collision(entity):
                 entity.state.p_pos = old_entity_pos
                 entity.state.vel = 0
-    
+
+    def get_expert_action(self, agent):
+        # get expert action of prey
+        force_from_agent = np.zeros((self.dim_c,))
+        force_from_wall = np.zeros((self.dim_c,))
+        max_distance = self.trav_map.shape[0]*self.trav_map_resolution
+
+        # calculate the force from adversary
+        for other in self.agents:
+            if other is agent: continue
+            dis =  np.linalg.norm(other.state.p_pos - agent.state.p_pos)
+            force_vector = (agent.state.p_pos - other.state.p_pos) / dis
+            force_from_agent += force_vector
+
+        # calculate the force from wall
+        detect_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
+                       math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
+        distance_set = np.ones((len(detect_degree),))*max_distance
+        detect_stepsize = 0.1
+        max_detect_step = int(max_distance/detect_stepsize)
+        for i, degree in enumerate(detect_degree):
+            for steps in range(1,max_detect_step):
+                # shift location
+                shift_vector = detect_stepsize*steps*np.array([math.cos(degree), math.sin(degree)])
+                if np.linalg.norm(shift_vector) > np.min(distance_set):
+                    distance_set[i] = np.linalg.norm(shift_vector)
+                    break
+                shift_loc = agent.state.p_pos + shift_vector
+                shift_loc_grid_index = self.world_to_grid(shift_loc)
+                if self.trav_map[shift_loc_grid_index[0]][shift_loc_grid_index[1]]:
+                    distance_set[i] = np.linalg.norm(shift_vector)
+                    break
+        min_dis_to_wall = np.min(distance_set)
+        min_dis_degree = detect_degree[np.argmin(distance_set)]
+        force_from_wall = - max_distance/min_dis_to_wall/3 * np.array([math.cos(min_dis_degree), math.sin(min_dis_degree)])
+
+        total_force = force_from_wall + force_from_agent*2
+        
+        return total_force
 
 
 class Scenario(BaseScenario):
@@ -412,7 +456,7 @@ class Scenario(BaseScenario):
                     if adv.name == agent.name:
                         rew += 5
             if ag.if_dead:
-                rew += 10
+                rew += 200
         # if collide
         if agent.if_collide:
             rew += -5
@@ -511,8 +555,8 @@ class Scenario(BaseScenario):
 
 def main():
     import time
-    from onpolicy.envs.mpe.environment import MultiAgentEnv, CatchingEnv
-    from onpolicy.envs.mpe.scenarios import load
+    from envs.mpe.environment import MultiAgentEnv, CatchingEnv
+    from envs.mpe.scenarios import load
     from onpolicy.config import get_config
     parser = get_config()
     args = parser.parse_known_args()[0]
