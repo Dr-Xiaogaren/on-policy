@@ -1,0 +1,203 @@
+import torch
+import numpy as np
+from collections import defaultdict
+
+from onpolicy.utils.util import check,get_shape_from_obs_space, get_shape_from_act_space
+
+def _flatten(T, N, x):
+    return x.reshape(T * N, *x.shape[2:])
+
+def _cast(x):
+    return x.transpose(1, 2, 0, 3).reshape(-1, *x.shape[3:])
+
+def _cast_till_agent(x):
+    return x.transpose(1, 0, 2, 3).reshape(-1, *x.shape[2:])
+
+def _flatten_till_agent(T, N, x):
+    return x.reshape(T * N, *x.shape[3:])
+
+class SharedReplayBuffer(object):
+    def __init__(self, args, num_agents, obs_space, act_space, max_buffer_size):
+        self.episode_length = args.episode_length
+        self.n_rollout_threads = args.n_rollout_threads
+        self.hidden_size = args.hidden_size
+        self.recurrent_N = args.recurrent_N
+        self.gamma = args.gamma
+        self.gae_lambda = args.gae_lambda
+        self._use_gae = args.use_gae
+        self._use_popart = args.use_popart
+        self._use_valuenorm = args.use_valuenorm
+        self._use_proper_time_limits = args.use_proper_time_limits 
+        self.max_buffer_size = max_buffer_size
+
+        self._mixed_obs = False  # for mixed observation   
+
+        obs_shape = get_shape_from_obs_space(obs_space)
+
+        # for mixed observation
+        if 'Dict' in obs_shape.__class__.__name__:
+            self._mixed_obs = True
+            
+            self.obs = {}
+
+            for key in obs_shape:
+                self.obs[key] = np.zeros((max_buffer_size, self.n_rollout_threads, num_agents, *obs_shape[key].shape), dtype=np.float32)
+       
+        else: 
+            # deal with special attn format   
+            if type(obs_shape[-1]) == list:
+                obs_shape = obs_shape[:1]
+
+            self.obs = np.zeros((max_buffer_size, self.n_rollout_threads, num_agents, *obs_shape), dtype=np.float32)
+
+        self.rnn_states = np.zeros((max_buffer_size, self.n_rollout_threads, num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+        self.rnn_states_critic = np.zeros_like(self.rnn_states)
+       
+        if act_space.__class__.__name__ == 'Discrete':
+            self.available_actions = np.ones((max_buffer_size, self.n_rollout_threads, num_agents, act_space.n), dtype=np.float32)
+        else:
+            self.available_actions = None
+
+        act_shape = get_shape_from_act_space(act_space)
+
+        self.actions = np.zeros(
+            (max_buffer_size, self.n_rollout_threads, num_agents, act_shape), dtype=np.float32)
+
+        self.rewards = np.zeros(
+            (max_buffer_size, self.n_rollout_threads, num_agents, 1), dtype=np.float32)
+
+        self.masks = np.ones((max_buffer_size, self.n_rollout_threads, num_agents, 1), dtype=np.float32)
+        self.bad_masks = np.ones_like(self.masks)
+        self.active_masks = np.ones_like(self.masks)
+
+        self.step = 0  # current index to write to (ovewrite oldest data)
+        self.filled_i = 0  # index of first empty location in buffer (last index when full)
+    
+    def buffer_size(self):
+        return self.filled_i
+
+    def insert(self, obs, rnn_states, rnn_states_critic, actions,
+               rewards, masks):
+            
+        if self._mixed_obs:
+            for key in self.obs.keys():
+                self.obs[key][self.step + 1] = obs[key].copy()
+        else:
+            self.obs[self.step + 1] = obs.copy()
+
+        self.rnn_states[self.step + 1] = rnn_states.copy()
+        self.rnn_states_critic[self.step + 1] = rnn_states_critic.copy()
+        self.actions[self.step] = actions.copy()
+        self.rewards[self.step] = rewards.copy()
+        self.masks[self.step + 1] = masks.copy()
+
+        self.step = (self.step + 1) % self.max_buffer_size
+        self.filled_i = self.filled_i + 1 if self.filled_i + 1 <= self.max_buffer_size else self.max_buffer_size
+
+    def recurrent_generator(self, batch_size, data_chunk_length):
+        n_rounds, n_rollout_threads, num_agents = self.rewards.shape[0:3]
+        n_records = n_rollout_threads * self.filled_i
+        data_chunks = n_records // data_chunk_length  
+
+        rand = torch.randperm(data_chunks).numpy()
+        sampler = rand[0:batch_size]
+
+        if self._mixed_obs:
+            obs = {}
+
+            for key in self.obs.keys():
+                if len(self.obs[key].shape) == 6:
+                    obs[key] = self.obs[key][:-1].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.obs[key].shape[2:])
+                elif len(self.obs[key].shape) == 5:
+                    obs[key] = self.obs[key][:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.obs[key].shape[2:])
+                else:
+                    obs[key] = _cast_till_agent(self.obs[key][:-1])
+        else:
+            if len(self.obs.shape) > 4:
+                obs = self.obs[:-1].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.obs.shape[2:])
+            else:
+                obs = _cast_till_agent(self.obs[:-1])
+
+        actions = _cast_till_agent(self.actions)
+        rewards = _cast_till_agent(self.rewards)
+        masks = _cast_till_agent(self.masks[:-1])    
+        # rnn_states = _cast(self.rnn_states[:-1])
+        # rnn_states_critic = _cast(self.rnn_states_critic[:-1])
+        rnn_states = self.rnn_states[:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states.shape[2:])
+        rnn_states_critic = self.rnn_states_critic[:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states_critic.shape[2:])
+        
+        if self.available_actions is not None:
+            available_actions = _cast_till_agent(self.available_actions[:-1])
+
+
+        if self._mixed_obs:
+            share_obs_batch = defaultdict(list)
+            obs_batch = defaultdict(list)
+        else:
+            share_obs_batch = []
+            obs_batch = []
+
+        rnn_states_batch = []
+        rnn_states_critic_batch = []
+        actions_batch = []
+        available_actions_batch = []
+        reward_batch = []
+        masks_batch = []
+
+        for index in sampler:
+
+            ind = index * data_chunk_length
+            # size [T+1 N M Dim]-->[T N M Dim]-->[N,M,T,Dim]-->[N*M*T,Dim]-->[L,Dim]
+            if self._mixed_obs:
+                for key in obs.keys():
+                    obs_batch[key].append(obs[key][ind:ind+data_chunk_length])
+            else:
+                obs_batch.append(obs[ind:ind+data_chunk_length])
+
+            actions_batch.append(actions[ind:ind+data_chunk_length])
+            if self.available_actions is not None:
+                available_actions_batch.append(available_actions[ind:ind+data_chunk_length])
+            reward_batch.append(rewards[ind:ind+data_chunk_length])
+            masks_batch.append(masks[ind:ind+data_chunk_length])
+            # size [T+1 N M Dim]-->[T N M Dim]-->[N M T Dim]-->[N*M*T,Dim]-->[1,Dim]
+            rnn_states_batch.append(rnn_states[ind])
+            rnn_states_critic_batch.append(rnn_states_critic[ind])
+        
+        L, N = data_chunk_length, batch_size*num_agents
+
+        # These are all from_numpys of size (L, N, num_agent, Dim) 
+        if self._mixed_obs:
+            for key in obs_batch.keys():  
+                obs_batch[key] = np.stack(obs_batch[key], axis=1)
+        else:        
+            obs_batch = np.stack(obs_batch, axis=1)
+        actions_batch = np.stack(actions_batch, axis=1)
+        if self.available_actions is not None:
+            available_actions_batch = np.stack(available_actions_batch, axis=1)
+        reward_batch = np.stack(reward_batch, axis=1)
+        masks_batch = np.stack(masks_batch, axis=1)
+
+        # States is just a (N, num_agent, -1) from_numpy
+        rnn_states_batch = np.stack(rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
+        rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
+        
+        # Flatten the (L, N, num_agent, ...) from_numpys to (L * N, ...)
+        if self._mixed_obs:
+            for key in obs_batch.keys(): 
+                if len(obs_batch[key].shape) == 6:
+                    obs_batch[key] = obs_batch[key].reshape(L*N, *obs_batch[key].shape[3:])
+                elif len(obs_batch[key].shape) == 5:
+                    obs_batch[key] = obs_batch[key].reshape(L*N, *obs_batch[key].shape[3:])
+                else:
+                    obs_batch[key] = _flatten_till_agent(L,N, obs_batch[key])
+        else:
+            obs_batch = _flatten_till_agent(L, N, obs_batch)
+        actions_batch = _flatten_till_agent(L, N, actions_batch)
+        if self.available_actions is not None:
+            available_actions_batch = _flatten_till_agent(L, N, available_actions_batch)
+        else:
+            available_actions_batch = None
+        reward_batch = _flatten_till_agent(L, N, reward_batch)
+        masks_batch = _flatten_till_agent(L, N, masks_batch)
+
+        yield share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, reward_batch, masks_batch, available_actions_batch

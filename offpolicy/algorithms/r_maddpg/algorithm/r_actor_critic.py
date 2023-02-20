@@ -1,13 +1,13 @@
 from cv2 import merge
 import torch
 import torch.nn as nn
-from onpolicy.algorithms.utils.util import init, check
-from onpolicy.algorithms.utils.cnn import CNNBase
-from onpolicy.algorithms.utils.mlp import MLPBase
-from onpolicy.algorithms.utils.rnn import RNNLayer
-from onpolicy.algorithms.utils.act import ACTLayer
-from onpolicy.algorithms.utils.popart import PopArt
-from onpolicy.utils.util import get_shape_from_obs_space
+from offpolicy.algorithms.utils.util import init, check
+from offpolicy.algorithms.utils.cnn import CNNBase
+from offpolicy.algorithms.utils.mlp import MLPBase
+from offpolicy.algorithms.utils.rnn import RNNLayer
+from offpolicy.algorithms.utils.act import ACTLayer
+from offpolicy.algorithms.utils.popart import PopArt
+from offpolicy.utils.util import get_shape_from_obs_space
 
 
 class R_Actor(nn.Module):
@@ -173,7 +173,7 @@ class R_CNNCritic(nn.Module):
     :param cent_obs_space: (gym.Space) (centralized) observation space.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
-    def __init__(self, args, CNNbase, FCbase, obs_space, cent_obs_space, device=torch.device("cpu")):
+    def __init__(self, args, CNNbase, FCbase, obs_space, cent_obs_space, action_space, device=torch.device("cpu")):
         super(R_CNNCritic, self).__init__()
         self.hidden_size = args.hidden_size
 
@@ -198,7 +198,9 @@ class R_CNNCritic(nn.Module):
         self.CNNbase = CNNbase
         self.FCbase = FCbase
 
-        merge_input_size = self.num_agents*(self.hidden_size + self.CNNbase.output_size)
+        self.action_dim = action_space.n
+
+        merge_input_size = self.num_agents*(self.hidden_size + self.CNNbase.output_size + self.action_dim)
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
 
@@ -215,36 +217,39 @@ class R_CNNCritic(nn.Module):
 
         self.to(device)
 
-    def forward(self, cent_obs, joint_action, rnn_states, masks):
+    def forward(self, cent_obs, action, rnn_states, masks):
         """
         Compute actions from the given inputs while inference.
         :param cent_obs: (np.ndarray / torch.Tensor) observation inputs into network.
         :param rnn_states: (np.ndarray / torch.Tensor) if RNN network, hidden states for RNN.
         :param masks: (np.ndarray / torch.Tensor) mask tensor denoting if RNN states should be reinitialized to zeros.
-
+        :action_batch:(np.ndarray / torch.Tensor) action inputs into network, one-hot format.
+        
         :return values: (torch.Tensor) value function predictions.
         :return rnn_states: (torch.Tensor) updated RNN hidden states.
         """
         cent_obs_for_cnn = check(cent_obs["two-dim"]).to(**self.tpdv).reshape(-1,self.num_channel,self.obs_height,self.obs_height)
         cent_obs_for_fc = check(cent_obs["one-dim"]).to(**self.tpdv).reshape(-1,self.size_for_fc)
         rnn_states = check(rnn_states).to(**self.tpdv)
-        joint_action = check(joint_action).to(**self.tpdv).reshape(-1,joint_action.shape[-1])
+        action = check(action).to(**self.tpdv).reshape(-1,action.shape[-1])
         masks = check(masks).to(**self.tpdv)
         
         # encode respectively      
         critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
         critic_features_from_fc = self.FCbase(cent_obs_for_fc)
+        critic_features_from_fc = torch.concat([critic_features_from_fc,action], dim=-1)
+
         critic_features_from_cnn = critic_features_from_cnn.reshape(-1,self.num_agents*critic_features_from_cnn.size(-1))
         critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents*critic_features_from_fc.size(-1))
         # concat and merge
-        critic_features = self.MergeLayer(torch.cat([critic_features_from_cnn, critic_features_from_fc, joint_action],dim=1))
+        critic_features = self.MergeLayer(torch.cat([critic_features_from_cnn, critic_features_from_fc],dim=1))
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
         values = self.v_out(critic_features)
 
         return values, rnn_states
     
-    def batch_forward(self, obs_batch, joint_action_batch, rnn_states, masks):
+    def batch_forward(self, obs_batch, action_batch, rnn_states, masks):
         """
         Compute actions from the given inputs when training.
         :param obs_batch: (np.ndarray / torch.Tensor) observation inputs into network.
@@ -258,13 +263,14 @@ class R_CNNCritic(nn.Module):
         cent_obs_for_cnn = check(obs_batch["two-dim"]).to(**self.tpdv).reshape(-1,self.num_channel,self.obs_height,self.obs_height)
         cent_obs_for_fc = check(obs_batch["one-dim"]).to(**self.tpdv).reshape(-1,self.size_for_fc)
         rnn_states = check(rnn_states).to(**self.tpdv)
-        joint_action_batch = check(joint_action_batch).to(**self.tpdv).reshape(-1,joint_action_batch.shape[-1])
+        action_batch = check(action_batch).to(**self.tpdv).reshape(-1,action_batch.shape[-1])
         masks = check(masks).to(**self.tpdv)
         
         # encode respectively      
         critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
         critic_features_from_fc = self.FCbase(cent_obs_for_fc)
 
+        critic_features_from_fc = torch.concat([critic_features_from_fc,action_batch], dim=-1)
         critic_features_from_cnn = critic_features_from_cnn.reshape(-1, self.num_agents,critic_features_from_cnn.size(-1)).repeat(1,self.num_agents,1)
         critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents,critic_features_from_fc.size(-1)).repeat(1,self.num_agents,1)
 
@@ -272,7 +278,7 @@ class R_CNNCritic(nn.Module):
         critic_features_from_cnn = critic_features_from_cnn.reshape(-1,self.num_agents*critic_features_from_cnn.size(-1))
         critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents*critic_features_from_fc.size(-1))
         # concat and merge
-        critic_features = self.MergeLayer(torch.cat([critic_features_from_cnn, critic_features_from_fc, joint_action_batch],dim=1))
+        critic_features = self.MergeLayer(torch.cat([critic_features_from_cnn, critic_features_from_fc],dim=1))
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
         values = self.v_out(critic_features)
@@ -413,6 +419,6 @@ class CNNActorAndCritic(nn.Module):
         self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
 
         self.actor = R_CNNActor(args,self.CNNbase,self.FCbase, obs_space, action_space, device=device)
-        self.critic = R_CNNCritic(args,self.CNNbase,self.FCbase, obs_space, cent_obs_space, device=device)
+        self.critic = R_CNNCritic(args,self.CNNbase,self.FCbase, obs_space, cent_obs_space, action_space, device=device)
 
         self.to(device)
