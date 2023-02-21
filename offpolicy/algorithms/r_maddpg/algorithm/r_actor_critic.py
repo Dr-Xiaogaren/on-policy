@@ -216,8 +216,9 @@ class R_CNNCritic(nn.Module):
             self.v_out = init_(nn.Linear(self.hidden_size, 1))
 
         self.to(device)
+        self.device = device
 
-    def forward(self, cent_obs, action, rnn_states, masks):
+    def forward(self, obs_batch, action_batch, rnn_states, masks):
         """
         Compute actions from the given inputs while inference.
         :param cent_obs: (np.ndarray / torch.Tensor) observation inputs into network.
@@ -228,16 +229,23 @@ class R_CNNCritic(nn.Module):
         :return values: (torch.Tensor) value function predictions.
         :return rnn_states: (torch.Tensor) updated RNN hidden states.
         """
-        cent_obs_for_cnn = check(cent_obs["two-dim"]).to(**self.tpdv).reshape(-1,self.num_channel,self.obs_height,self.obs_height)
-        cent_obs_for_fc = check(cent_obs["one-dim"]).to(**self.tpdv).reshape(-1,self.size_for_fc)
+        cent_obs_for_cnn = check(obs_batch["two-dim"]).to(**self.tpdv).reshape(-1,self.num_channel,self.obs_height,self.obs_height)
+        cent_obs_for_fc = check(obs_batch["one-dim"]).to(**self.tpdv).reshape(-1,self.size_for_fc)
         rnn_states = check(rnn_states).to(**self.tpdv)
-        action = check(action).to(**self.tpdv).reshape(-1,action.shape[-1])
+        action_batch = check(action_batch).to(**self.tpdv).reshape(-1,action_batch.shape[-1])
         masks = check(masks).to(**self.tpdv)
+        # if not one-hot format
+        if action_batch.shape[-1] != self.action_dim:
+            action_batch = torch.zeros(action_batch.shape[0],self.action_dim, device=self.device).scatter(1,action_batch.to(dtype=torch.int64),1)
         
         # encode respectively      
         critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
         critic_features_from_fc = self.FCbase(cent_obs_for_fc)
-        critic_features_from_fc = torch.concat([critic_features_from_fc,action], dim=-1)
+
+        critic_features_from_fc = torch.cat([critic_features_from_fc,action_batch], dim=-1)
+        critic_features_from_cnn = critic_features_from_cnn.reshape(-1, self.num_agents,critic_features_from_cnn.size(-1)).repeat(1,self.num_agents,1)
+        critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents,critic_features_from_fc.size(-1)).repeat(1,self.num_agents,1)
+
 
         critic_features_from_cnn = critic_features_from_cnn.reshape(-1,self.num_agents*critic_features_from_cnn.size(-1))
         critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents*critic_features_from_fc.size(-1))
@@ -265,6 +273,9 @@ class R_CNNCritic(nn.Module):
         rnn_states = check(rnn_states).to(**self.tpdv)
         action_batch = check(action_batch).to(**self.tpdv).reshape(-1,action_batch.shape[-1])
         masks = check(masks).to(**self.tpdv)
+        # if not one-hot format
+        if action_batch.shape[-1] != self.action_dim:
+            action_batch = torch.zeros(action_batch.shape[0],self.action_dim, device=self.device).scatter(1,action_batch,1)
         
         # encode respectively      
         critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
@@ -358,9 +369,9 @@ class R_CNNActor(nn.Module):
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
         # output layer
-        actions, action_log_probs = self.act(actor_features, available_actions, deterministic)
+        actions, action_probs = self.act(actor_features, available_actions, deterministic)
 
-        return actions, action_log_probs, rnn_states
+        return actions, action_probs, rnn_states
 
     def evaluate_actions(self, obs, rnn_states, action, masks, available_actions=None, active_masks=None):
         """

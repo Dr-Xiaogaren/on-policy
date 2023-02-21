@@ -78,24 +78,24 @@ class R_MADDPGPolicy:
         :return rnn_states_critic: (torch.Tensor) updated critic network RNN states.
         """
         if use_target_actor:
-            actions, action_log_probs, rnn_states_actor = self.target_actor(obs,
+            actions, action_probs, rnn_states_actor = self.target_actor(obs,
                                                                     rnn_states_actor,
                                                                     masks,
                                                                     available_actions,
                                                                     deterministic)
         else:
-            actions, action_log_probs, rnn_states_actor = self.actor(obs,
+            actions, action_probs, rnn_states_actor = self.actor(obs,
                                                                     rnn_states_actor,
                                                                     masks,
                                                                     available_actions,
                                                                     deterministic)
         action_dim = self.act_space.n
-        one_hot_action = torch.zeros(actions.shape[0],action_dim).scatter(1,actions,1)
+        one_hot_action = torch.zeros(actions.shape[0],action_dim, device=self.device).scatter(1,actions,1)
         if use_target_critic:
             values, rnn_states_critic = self.target_critic(obs,one_hot_action,rnn_states_critic,masks)
         else:
             values, rnn_states_critic = self.critic(obs,one_hot_action,rnn_states_critic,masks)
-        return values, actions, action_log_probs, rnn_states_actor, rnn_states_critic
+        return values, actions, action_probs, rnn_states_actor, rnn_states_critic
 
     def get_values(self, obs, joint_action,rnn_states_critic, masks, use_target=True):
         """
@@ -133,25 +133,24 @@ class R_MADDPGPolicy:
         :return rnn_states_critic: (torch.Tensor) updated critic network RNN states.
         """
         if use_target_actor:
-            actions, action_log_probs, rnn_states_actor = self.target_actor(obs,
+            actions, action_probs, rnn_states_actor = self.target_actor(obs,
                                                                     rnn_states_actor,
                                                                     masks,
                                                                     available_actions,
                                                                     deterministic)
         else:
-            actions, action_log_probs, rnn_states_actor = self.actor(obs,
+            actions, action_probs, rnn_states_actor = self.actor(obs,
                                                                     rnn_states_actor,
                                                                     masks,
                                                                     available_actions,
                                                                     deterministic)
         action_dim = self.act_space.n
-        one_hot_action = torch.nn.functional.gumbel_softmax(action_log_probs, hard=True)
-
+        one_hot_action = torch.nn.functional.gumbel_softmax(action_probs, hard=True)
         if use_target_critic:
             values, rnn_states_critic = self.target_critic(obs,one_hot_action,rnn_states_critic,masks)
         else:
             values, rnn_states_critic = self.critic(obs,one_hot_action,rnn_states_critic,masks)
-        return values, actions, action_log_probs, rnn_states_actor, rnn_states_critic
+        return values, actions, action_probs, rnn_states_actor, rnn_states_critic
 
     def act(self, obs, rnn_states_actor, masks, available_actions=None, deterministic=False):
         """

@@ -320,16 +320,12 @@ def get_config():
                         default=True, help="Whether to use soft update")
     parser.add_argument('--tau', type=float, default=0.005,
                         help="Polyak update rate")
-    # hard update parameters
-    parser.add_argument('--hard_update_interval_episode', type=int, default=200,
-                        help="After how many episodes the lagging target should be updated")
-    parser.add_argument('--hard_update_interval', type=int, default=200,
-                        help="After how many timesteps the lagging target should be updated")
 
     # off policy update param
-    parser.add_argument("--batch_size",type=int, default=24, help="Batch size for update sample")
-    parser.add_argument("--update_interval_steps", type=int, default=10000, help="Update intervals for critic and actor(step)")
+    parser.add_argument("--batch_size",type=int, default=48, help="Batch size for update sample")
+    parser.add_argument("--update_interval_steps", type=int, default=1000, help="Update intervals for critic and actor(step)")
     parser.add_argument("--num_update_each", type=int, default=10, help="The number of gradient updates")
+    parser.add_argument("--buffer_size", type=int, default=5000,help="The maximum buffer size" )
                         
     return parser
 

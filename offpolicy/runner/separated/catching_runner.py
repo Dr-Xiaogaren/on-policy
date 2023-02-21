@@ -23,11 +23,7 @@ class MPERunner(Runner):
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
         total_num_steps = 0
-        for episode in range(episodes):
-            if self.use_linear_lr_decay:
-                for group_id in range(self.num_groups):
-                    self.trainer[group_id].policy.lr_decay(episode, episodes)
-            
+        for episode in range(episodes):        
             for step in range(self.episode_length):
                 # Sample actions
                 actions, rnn_states, rnn_states_critic, actions_env = self.collect(step)
@@ -40,33 +36,37 @@ class MPERunner(Runner):
                 total_num_steps += self.n_rollout_threads
 
                 # if buffer is enough to train 
-                if [group_buffer.data_length()>= self.all_args.batch_size for group_buffer in self.buffer].all() \
+                if all([group_buffer.buffer_size()== self.all_args.buffer_size for group_buffer in self.buffer]) \
                     and total_num_steps % self.all_args.update_interval_steps < self.n_rollout_threads:
+                    if self.use_linear_lr_decay:
+                        for group_id in range(self.num_groups):
+                            self.trainer[group_id].policy.lr_decay(total_num_steps, self.num_env_steps)
 
                     train_infos = self.train()
+                    # log information
+                    if total_num_steps % self.log_interval == 0:
+                        end = time.time()
+                        print("\n Scenario {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
+                                .format(self.all_args.scenario_name,
+                                        self.algorithm_name,
+                                        self.experiment_name,
+                                        episode,
+                                        episodes,
+                                        total_num_steps,
+                                        self.num_env_steps,
+                                        int(total_num_steps / (end - start))))
+
+                        if self.env_name == "MPE":
+                            for group_id in range(self.num_groups):
+                                idv_rews = []
+                                train_infos[group_id].update({"average_episode_rewards": self.buffer[group_id].get_average_rewards()})
+                        self.log_train(train_infos, total_num_steps)
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
                 self.save(episode)
 
-            # log information
-            if episode % self.log_interval == 0:
-                end = time.time()
-                print("\n Scenario {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
-                        .format(self.all_args.scenario_name,
-                                self.algorithm_name,
-                                self.experiment_name,
-                                episode,
-                                episodes,
-                                total_num_steps,
-                                self.num_env_steps,
-                                int(total_num_steps / (end - start))))
-
-                if self.env_name == "MPE":
-                    for group_id in range(self.num_groups):
-                        idv_rews = []
-                        train_infos[group_id].update({"average_episode_rewards": np.mean(self.buffer[group_id].rewards) * self.episode_length})
-                self.log_train(train_infos, total_num_steps)
+            
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -98,10 +98,8 @@ class MPERunner(Runner):
         for group_id in range(self.num_groups):
             self.trainer[group_id].prep_rollout()
 
-            share_obs_input = dict()
             obs_input = dict()
             for key in self.obs_dict_keys:
-                share_obs_input[key] = self.buffer[group_id].share_obs[key][step]
                 obs_input[key] = self.buffer[group_id].obs[key][step]
 
             value, action, action_log_prob, rnn_states, rnn_states_critic \

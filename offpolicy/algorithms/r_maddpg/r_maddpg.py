@@ -40,13 +40,20 @@ class R_MADDPG():
         self._use_valuenorm = args.use_valuenorm
         self._use_value_active_masks = args.use_value_active_masks
         self._use_policy_active_masks = args.use_policy_active_masks
+
+        self.use_soft_update = args.use_soft_update
              
 
     def maddpg_update(self, sample):
         q_loss, critic_grad_norm = self.update_critic(sample)
-        policy_loss, action_log_probs, actor_grad_norm = self.update_policy()
+        policy_loss, action_probs, actor_grad_norm = self.update_policy(sample)
+
+        if self.use_soft_update:
+            self.policy.soft_target_updates()
+        else:
+            self.policy.hard_target_updates()
         
-        entropy = -torch.exp(action_log_probs)*action_log_probs
+        entropy = torch.sum(-torch.log(action_probs)*action_probs, dim=-1).mean()
 
         return q_loss, policy_loss, entropy, critic_grad_norm, actor_grad_norm
 
@@ -63,16 +70,13 @@ class R_MADDPG():
 
         train_info['value_loss'] = 0
         train_info['policy_loss'] = 0
-        train_info['dist_entropy'] = 0
+        train_info['entropy'] = 0
         train_info['actor_grad_norm'] = 0
         train_info['critic_grad_norm'] = 0
 
         for _ in range(self.num_update_each):
             if self._use_recurrent_policy:
-                data_generator = buffer.recurrent_generator(self.batch_size, self.data_chunk_length)
-
-
-            for sample in data_generator:
+                sample = buffer.recurrent_generator(self.batch_size, self.data_chunk_length)
 
                 q_loss, policy_loss, entropy, critic_grad_norm, actor_grad_norm = self.maddpg_update(sample)
 
@@ -109,21 +113,23 @@ class R_MADDPG():
         actions_batch, return_batch  = sample
 
         return_batch = check(return_batch).to(**self.tpdv)
-
+        masks_batch = check(masks_batch).to(**self.tpdv)
+        
         # Sacrifice a value for convenience
         for key in obs_batch.keys():
             obs_batch[key] = check(obs_batch[key]).to(**self.tpdv) 
             next_obs_batch[key] = check(next_obs_batch[key]).to(**self.tpdv) 
 
+
         # calculate next Q value
-        next_Q , _= self.policy.get_actions(next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch, 
+        next_Q,_ ,_ ,_ ,_ = self.policy.get_actions(next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch, 
                                             next_mask_batch, use_target_actor=True, use_target_critic=True)
         # calculate current Q value
-        critic_rets, _ = self.policy.get_values(obs_batch, actions_batch, rnn_states_critic_batch, masks_batch, use_target=False)
+        critic_rets= self.policy.get_values(obs_batch, actions_batch, rnn_states_critic_batch, masks_batch, use_target=False)
         # calculate target Q value
-        target_q = return_batch.view(-1,1) + self.gamma*next_Q.view(-1,1)*(1-next_mask_batch.view(-1,1))
-
-        q_loss =  torch.nn.MSELoss(critic_rets,target_q.detach())
+        target_q = return_batch.view(-1,1) + self.gamma*next_Q.view(-1,1)*masks_batch.view(-1,1)
+        
+        q_loss =  torch.nn.MSELoss()(critic_rets,target_q.detach())
 
         self.policy.critic_optimizer.zero_grad()
 
@@ -140,10 +146,12 @@ class R_MADDPG():
         next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch, next_mask_batch, \
         actions_batch, return_batch  = sample
 
-        curr_q, _, action_log_probs,_= self.policy.evaluate_actions(next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch, 
-                                                 next_mask_batch, use_target_actor=True, use_target_critic=False)
+        next_mask_batch = check(next_mask_batch).to(**self.tpdv)
+
+        curr_q, _, action_probs, _, _= self.policy.evaluate_actions(obs_batch, rnn_states_batch, rnn_states_critic_batch, 
+                                                                    masks_batch, use_target_actor=True, use_target_critic=False)
         policy_loss = -curr_q.mean()
-        policy_loss += (action_log_probs**2).mean()*1e-3
+        policy_loss += (action_probs**2).mean()*1e-3
 
         self.policy.actor_optimizer.zero_grad()
 
@@ -153,7 +161,7 @@ class R_MADDPG():
 
         self.policy.actor_optimizer.step()
 
-        return policy_loss, action_log_probs, actor_grad_norm
+        return policy_loss, action_probs, actor_grad_norm
         
 
 

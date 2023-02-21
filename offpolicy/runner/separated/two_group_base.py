@@ -109,8 +109,8 @@ class Runner(object):
             bu = SharedReplayBuffer(self.all_args,
                                     num_inner_agent,
                                     self.envs.observation_space[self.num_bads-1+group_id],
-                                    share_observation_space,
-                                    self.envs.action_space[self.num_bads-1+group_id]) 
+                                    self.envs.action_space[self.num_bads-1+group_id]
+                                    ) 
             self.buffer.append(bu)
 
 
