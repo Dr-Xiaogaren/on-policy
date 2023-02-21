@@ -146,10 +146,8 @@ class R_MADDPG():
         next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch, next_mask_batch, \
         actions_batch, return_batch  = sample
 
-        next_mask_batch = check(next_mask_batch).to(**self.tpdv)
-
         curr_q, _, action_probs, _, _= self.policy.evaluate_actions(obs_batch, rnn_states_batch, rnn_states_critic_batch, 
-                                                                    masks_batch, use_target_actor=True, use_target_critic=False)
+                                                                    masks_batch, use_target_actor=False, use_target_critic=False)
         policy_loss = -curr_q.mean()
         policy_loss += (action_probs**2).mean()*1e-3
 
