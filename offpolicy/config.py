@@ -217,7 +217,7 @@ def get_config():
     parser.add_argument("--use_recurrent_policy", action='store_false',
                         default=True, help='use a recurrent policy')
     parser.add_argument("--recurrent_N", type=int, default=1, help="The number of recurrent layers.")
-    parser.add_argument("--data_chunk_length", type=int, default=10,
+    parser.add_argument("--data_chunk_length", type=int, default=3,
                         help="Time length of chunks used to train a recurrent_policy")
 
     # optimizer parameters
@@ -300,31 +300,17 @@ def get_config():
     parser.add_argument("--step_mode", type=str, default="none", help=" assert mode == expert_adversary or mode == expert_both or mode == expert_prey or mode == none" )
     parser.add_argument("--use_intrinsic_reward", action='store_true', default=False, help="use_intrinsic_reward")
 
-    # imitation learning
-    parser.add_argument("--expert_path_gp0", type=str, default="/workspace/tmp/data/chaser_trajectory_1.0.npz", help="set the path to the expert trajectory of predators")
-    parser.add_argument("--expert_path_gp1", type=str, default="/workspace/tmp/data/evader_trajectory_1.0.npz", help="set the path to the expert trajectory of preys")
-    parser.add_argument("--imitation_batch_size", type=int, default=16, help="the batchsize of training")
-    parser.add_argument("--imitation_num_epoch", type=int, default=1000, help="the batchsize of training")
-    parser.add_argument("--imitation_train_fraction", type=float, default=0.8, help="the train validation split (0 to 1)for pre-training using behavior cloning (BC)")
-    parser.add_argument("--imitation_save_interval", type=int, default=50, help=" time duration between contiunous twice models saving in imitation learning")
-    parser.add_argument("--imitation_data_chunk_length", type=int, default=100, help="Time length of chunks used to train a recurrent_policy in imitation learning")
-    parser.add_argument("--imitation_lr", type=float, default=0.9, help="the learning rate of imitation learning") 
-    parser.add_argument("--imitation_opti_eps", type=float, default=1e-5, help='RMSprop optimizer epsilon (default: 1e-5)')
-    parser.add_argument("--imitation_weight_decay", type=float, default=0)
-    parser.add_argument("--imitation_use_linear_lr_decay", action='store_true',
-                        default=False, help='use a linear schedule on the learning rate')
-    parser.add_argument("--imitation_log_interval", type=int, default=1, help="the batchsize of training")
 
     # soft update parameters
     parser.add_argument('--use_soft_update', action='store_false',
-                        default=True, help="Whether to use soft update")
+                        default=False, help="Whether to use soft update")
     parser.add_argument('--tau', type=float, default=0.005,
                         help="Polyak update rate")
 
     # off policy update param
     parser.add_argument("--batch_size",type=int, default=48, help="Batch size for update sample")
-    parser.add_argument("--update_interval_steps", type=int, default=1000, help="Update intervals for critic and actor(step)")
-    parser.add_argument("--num_update_each", type=int, default=10, help="The number of gradient updates")
+    parser.add_argument("--update_interval_steps", type=int, default=5000, help="Update intervals for critic and actor(step)")
+    parser.add_argument("--num_update_each", type=int, default=50, help="The number of gradient updates")
     parser.add_argument("--buffer_size", type=int, default=5000,help="The maximum buffer size" )
                         
     return parser

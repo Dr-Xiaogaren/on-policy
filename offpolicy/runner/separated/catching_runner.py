@@ -23,16 +23,17 @@ class MPERunner(Runner):
         start = time.time()
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
         total_num_steps = 0
+        step = 0
         for episode in range(episodes):        
-            for step in range(self.episode_length):
-                # Sample actions
+            for _ in range(self.episode_length):
+                # Sample actions\
                 actions, rnn_states, rnn_states_critic, actions_env = self.collect(step)
                 # Obser reward and next obs
                 obs, rewards, dones, infos = self.envs.step(actions_env,mode=self.step_mode)
                 data = obs, rewards, dones, infos, actions, rnn_states, rnn_states_critic 
                 
                 # insert data into buffer
-                self.insert(data)
+                step = self.insert(data)
                 total_num_steps += self.n_rollout_threads
 
                 # if buffer is enough to train 
@@ -44,23 +45,23 @@ class MPERunner(Runner):
 
                     train_infos = self.train()
                     # log information
-                    if total_num_steps % self.log_interval == 0:
-                        end = time.time()
-                        print("\n Scenario {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
-                                .format(self.all_args.scenario_name,
-                                        self.algorithm_name,
-                                        self.experiment_name,
-                                        episode,
-                                        episodes,
-                                        total_num_steps,
-                                        self.num_env_steps,
-                                        int(total_num_steps / (end - start))))
 
-                        if self.env_name == "MPE":
-                            for group_id in range(self.num_groups):
-                                idv_rews = []
-                                train_infos[group_id].update({"average_episode_rewards": self.buffer[group_id].get_average_rewards()})
-                        self.log_train(train_infos, total_num_steps)
+                    end = time.time()
+                    print("\n Scenario {} Algo {} Exp {} updates {}/{} episodes, total num timesteps {}/{}, FPS {}.\n"
+                            .format(self.all_args.scenario_name,
+                                    self.algorithm_name,
+                                    self.experiment_name,
+                                    episode,
+                                    episodes,
+                                    total_num_steps,
+                                    self.num_env_steps,
+                                    int(total_num_steps / (end - start))))
+
+                    if self.env_name == "MPE":
+                        for group_id in range(self.num_groups):
+                            idv_rews = []
+                            train_infos[group_id].update({"average_episode_rewards": self.buffer[group_id].get_average_rewards()})
+                    self.log_train(train_infos, total_num_steps)
             
             # save model
             if (episode % self.save_interval == 0 or episode == episodes - 1):
@@ -161,8 +162,9 @@ class MPERunner(Runner):
             masks = np.ones((self.n_rollout_threads, num_inner_agent, 1), dtype=np.float32)
             masks[group_dones == True] = np.zeros(((group_dones == True).sum(), 1), dtype=np.float32)
             
-            self.buffer[group_id].insert(group_obs, all_rnn_states[group_id], all_rnn_states_critic[group_id],
+            insert_step = self.buffer[group_id].insert(group_obs, all_rnn_states[group_id], all_rnn_states_critic[group_id],
                                all_actions[group_id], group_rewards, masks)
+        return insert_step
 
     @torch.no_grad()
     def eval(self, total_num_steps):

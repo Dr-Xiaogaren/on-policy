@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from collections import defaultdict
 
-from onpolicy.utils.util import check,get_shape_from_obs_space, get_shape_from_act_space
+from offpolicy.utils.util import check,get_shape_from_obs_space, get_shape_from_act_space
 
 def _flatten(T, N, x):
     return x.reshape(T * N, *x.shape[2:])
@@ -75,7 +75,7 @@ class SharedReplayBuffer(object):
 
     def insert(self, obs, rnn_states, rnn_states_critic, actions,
                rewards, masks):
-            
+    
         if self._mixed_obs:
             for key in self.obs.keys():
                 self.obs[key][self.step + 1] = obs[key].copy()
@@ -91,9 +91,11 @@ class SharedReplayBuffer(object):
         self.step = (self.step + 1) % (self.max_buffer_size-1)
         self.filled_i = self.filled_i + 1 if self.filled_i + 1 <= self.max_buffer_size else self.max_buffer_size
 
+        return self.step
+
     def recurrent_generator(self, batch_size, data_chunk_length):
         _ , n_rollout_threads, num_agents = self.rewards.shape[0:3]
-        n_records = n_rollout_threads * self.filled_i
+        n_records = n_rollout_threads * (self.filled_i-1)
         data_chunks = n_records // data_chunk_length - 2
 
         rand = torch.randperm(data_chunks).numpy() # make sure no overflow

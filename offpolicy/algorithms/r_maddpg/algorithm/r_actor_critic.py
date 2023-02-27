@@ -200,9 +200,12 @@ class R_CNNCritic(nn.Module):
 
         self.action_dim = action_space.n
 
-        merge_input_size = self.num_agents*(self.hidden_size + self.CNNbase.output_size + self.action_dim)
+        self.StateActionMerge = MLPBase(args, input_size=self.hidden_size+self.action_dim, layer_N=3, hidden_size=self.hidden_size)
+
+        merge_input_size = self.num_agents*(self.hidden_size + self.CNNbase.output_size)
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
+
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
@@ -243,45 +246,7 @@ class R_CNNCritic(nn.Module):
         critic_features_from_fc = self.FCbase(cent_obs_for_fc)
 
         critic_features_from_fc = torch.cat([critic_features_from_fc,action_batch], dim=-1)
-        critic_features_from_cnn = critic_features_from_cnn.reshape(-1, self.num_agents,critic_features_from_cnn.size(-1)).repeat(1,self.num_agents,1)
-        critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents,critic_features_from_fc.size(-1)).repeat(1,self.num_agents,1)
-
-
-        critic_features_from_cnn = critic_features_from_cnn.reshape(-1,self.num_agents*critic_features_from_cnn.size(-1))
-        critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents*critic_features_from_fc.size(-1))
-        # concat and merge
-        critic_features = self.MergeLayer(torch.cat([critic_features_from_cnn, critic_features_from_fc],dim=1))
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
-        values = self.v_out(critic_features)
-
-        return values, rnn_states
-    
-    def batch_forward(self, obs_batch, action_batch, rnn_states, masks):
-        """
-        Compute actions from the given inputs when training.
-        :param obs_batch: (np.ndarray / torch.Tensor) observation inputs into network.
-        :action_batch:(np.ndarray / torch.Tensor) action inputs into network, one-hot format.
-        :param rnn_states: (np.ndarray / torch.Tensor) if RNN network, hidden states for RNN.
-        :param masks: (np.ndarray / torch.Tensor) mask tensor denoting if RNN states should be reinitialized to zeros.
-
-        :return values: (torch.Tensor) value function predictions.
-        :return rnn_states: (torch.Tensor) updated RNN hidden states.
-        """
-        cent_obs_for_cnn = check(obs_batch["two-dim"]).to(**self.tpdv).reshape(-1,self.num_channel,self.obs_height,self.obs_height)
-        cent_obs_for_fc = check(obs_batch["one-dim"]).to(**self.tpdv).reshape(-1,self.size_for_fc)
-        rnn_states = check(rnn_states).to(**self.tpdv)
-        action_batch = check(action_batch).to(**self.tpdv).reshape(-1,action_batch.shape[-1])
-        masks = check(masks).to(**self.tpdv)
-        # if not one-hot format
-        if action_batch.shape[-1] != self.action_dim:
-            action_batch = torch.zeros(action_batch.shape[0],self.action_dim, device=self.device).scatter(1,action_batch,1)
-        
-        # encode respectively      
-        critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
-        critic_features_from_fc = self.FCbase(cent_obs_for_fc)
-
-        critic_features_from_fc = torch.concat([critic_features_from_fc,action_batch], dim=-1)
+        critic_features_from_fc = self.StateActionMerge(critic_features_from_fc)
         critic_features_from_cnn = critic_features_from_cnn.reshape(-1, self.num_agents,critic_features_from_cnn.size(-1)).repeat(1,self.num_agents,1)
         critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents,critic_features_from_fc.size(-1)).repeat(1,self.num_agents,1)
 

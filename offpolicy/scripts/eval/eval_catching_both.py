@@ -9,7 +9,7 @@ import setproctitle
 import numpy as np
 from pathlib import Path
 import torch
-from onpolicy.config import get_config
+from offpolicy.config import get_config
 from envs.mpe.MPE_env import MPEEnv, MPECatchingEnv, MPECatchingEnvExpert
 from envs.env_wrappers import SubprocVecEnv, DummyVecEnv
 import time
@@ -151,7 +151,7 @@ def main(args):
     }
 
     # run experiments
-    from onpolicy.runner.separated.catching_runner import MPERunner as Runner
+    from offpolicy.runner.separated.catching_runner import MPERunner as Runner
 
     runner = Runner(config)
     # runner.render()
