@@ -71,25 +71,26 @@ class SharedReplayBuffer(object):
         self.filled_i = 0  # index of first empty location in buffer (last index when full)
     
     def buffer_size(self):
-        return self.filled_i
+        return self.filled_i+1
 
     def insert(self, obs, rnn_states, rnn_states_critic, actions,
                rewards, masks):
-    
+
+        next_step = (self.step + 1) % (self.max_buffer_size)
         if self._mixed_obs:
             for key in self.obs.keys():
-                self.obs[key][self.step + 1] = obs[key].copy()
+                self.obs[key][next_step] = obs[key].copy()
         else:
-            self.obs[self.step + 1] = obs.copy()
+            self.obs[next_step] = obs.copy()
 
-        self.rnn_states[self.step + 1] = rnn_states.copy()
-        self.rnn_states_critic[self.step + 1] = rnn_states_critic.copy()
+        self.rnn_states[next_step] = rnn_states.copy()
+        self.rnn_states_critic[next_step] = rnn_states_critic.copy()
         self.actions[self.step] = actions.copy()
         self.rewards[self.step] = rewards.copy()
-        self.masks[self.step + 1] = masks.copy()
+        self.masks[next_step] = masks.copy()
 
-        self.step = (self.step + 1) % (self.max_buffer_size-1)
-        self.filled_i = self.filled_i + 1 if self.filled_i + 1 <= self.max_buffer_size else self.max_buffer_size
+        self.step = next_step
+        self.filled_i = self.filled_i + 1 if self.filled_i + 1 < self.max_buffer_size else self.max_buffer_size-1
 
         return self.step
 
@@ -220,7 +221,7 @@ class SharedReplayBuffer(object):
               next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch,next_masks_batch, actions_batch, reward_batch
   
     def get_average_rewards(self):
-        if self.filled_i == self.max_buffer_size:
+        if self.filled_i == self.max_buffer_size-1:
             inds = np.arange(self.step - self.episode_length, self.step)
         else:
             inds = np.arange(max(0, self.step - self.episode_length), self.step)

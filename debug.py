@@ -1,9 +1,12 @@
 from cgi import print_environ
 import numpy as np
 import torch
+# (L, N, num_agent, ...)
+a = torch.tensor([1.,2.,3.,4.],requires_grad=True)
+d = a
+b = torch.tensor([6.,6.,6.,6.], requires_grad=True)
 
-x = torch.tensor([[0.99,0.1,0.5,0.8,0.9]])
-y = torch.tensor([[True, True, False, True, False]])
+a = a*2
 
-loss = x*y
-print(loss)
+print(d)
+print(a)

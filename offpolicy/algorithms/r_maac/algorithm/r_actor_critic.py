@@ -203,6 +203,7 @@ class R_CNNCritic(nn.Module):
         self.StateActionMerge = MLPBase(args, input_size=self.hidden_size+self.action_dim, layer_N=3, hidden_size=self.hidden_size)
 
         merge_input_size = (self.num_agents+1)*(self.hidden_size)
+        # merge_input_size = self.hidden_size
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
 
@@ -213,15 +214,12 @@ class R_CNNCritic(nn.Module):
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
-        if self._use_popart:
-            self.v_out = init_(PopArt(self.hidden_size, 1, device=device))
-        else:
-            self.v_out = init_(nn.Linear(self.hidden_size, 1))
+        self.v_out = init_(nn.Linear(self.hidden_size, self.action_dim))
 
         self.to(device)
         self.device = device
 
-    def forward(self, obs_batch, action_batch, rnn_states, masks):
+    def forward(self, obs_batch, action_batch, rnn_states, masks, return_all_value=False):
         """
         Compute actions from the given inputs while inference.
         :param cent_obs: (np.ndarray / torch.Tensor) observation inputs into network.
@@ -244,9 +242,10 @@ class R_CNNCritic(nn.Module):
         # encode respectively      
         # critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
         critic_features_from_fc = self.FCbase(cent_obs_for_fc)
+        self_obs_from_fc = critic_features_from_fc
         critic_features_from_fc = torch.cat([critic_features_from_fc,action_batch], dim=-1)
         critic_features_from_fc = self.StateActionMerge(critic_features_from_fc)
-        critic_features_state = critic_features_from_fc
+        
         # critic_features_from_cnn = critic_features_from_cnn.reshape(-1, self.num_agents,critic_features_from_cnn.size(-1)).repeat(1,self.num_agents,1)
         critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents,critic_features_from_fc.size(-1)).repeat(1,self.num_agents,1)
 
@@ -254,12 +253,18 @@ class R_CNNCritic(nn.Module):
         # critic_features_from_cnn = critic_features_from_cnn.reshape(-1,self.num_agents*critic_features_from_cnn.size(-1))
         critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents*critic_features_from_fc.size(-1))
         # concat and merge
-        critic_features = self.MergeLayer(torch.cat([critic_features_state, critic_features_from_fc], dim=-1))
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
-        values = self.v_out(critic_features)
+        critic_features = self.MergeLayer(torch.cat([self_obs_from_fc, critic_features_from_fc], dim=-1))
 
-        return values, rnn_states
+        # if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+        #     critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
+        all_values = self.v_out(critic_features)
+        int_acs = action_batch.max(dim=1, keepdim=True)[1]
+        values  = all_values.gather(1, int_acs)
+        
+        if return_all_value:
+            return values, all_values  
+        else:
+            return values, rnn_states
 
 class R_CNNActor(nn.Module):
     """
@@ -296,8 +301,8 @@ class R_CNNActor(nn.Module):
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
 
-        # if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-        #     self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
 
         self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
 
@@ -338,6 +343,7 @@ class R_CNNActor(nn.Module):
 
         return actions, action_probs, rnn_states
 
+
 class CNNActorAndCritic(nn.Module):
     def __init__(self,args, obs_space, cent_obs_space,action_space, device):
         super(CNNActorAndCritic, self).__init__()
@@ -349,7 +355,7 @@ class CNNActorAndCritic(nn.Module):
         self.size_for_fc = size_for_fc
 
         self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
-        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
+        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)    
 
         self.actor = R_CNNActor(args,self.CNNbase,self.FCbase, obs_space, action_space, device=device)
         self.critic = R_CNNCritic(args,self.CNNbase,self.FCbase, obs_space, cent_obs_space, action_space, device=device)

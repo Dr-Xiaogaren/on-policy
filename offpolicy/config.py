@@ -302,16 +302,20 @@ def get_config():
 
 
     # soft update parameters
-    parser.add_argument('--use_soft_update', action='store_false',
-                        default=False, help="Whether to use soft update")
+    parser.add_argument('--use_soft_update', action='store_true',
+                        default=True, help="Whether to use soft update")
     parser.add_argument('--tau', type=float, default=0.005,
                         help="Polyak update rate")
 
     # off policy update param
-    parser.add_argument("--batch_size",type=int, default=48, help="Batch size for update sample")
-    parser.add_argument("--update_interval_steps", type=int, default=5000, help="Update intervals for critic and actor(step)")
-    parser.add_argument("--num_update_each", type=int, default=50, help="The number of gradient updates")
-    parser.add_argument("--buffer_size", type=int, default=5000,help="The maximum buffer size" )
+    parser.add_argument("--batch_size",type=int, default=96, help="Batch size for update sample")
+    parser.add_argument("--update_interval_steps", type=int, default=6400, help="Update intervals for critic and actor(step)")
+    parser.add_argument("--num_update_each", type=int, default=20, help="The number of gradient updates")
+    parser.add_argument("--buffer_size", type=int, default=600,help="The maximum buffer size" )
+
+    # use witch algorithm
+    parser.add_argument("--MADDPG", action='store_true', default=False)
+    parser.add_argument("--MAAC", action='store_true', default=False)
                         
     return parser
 

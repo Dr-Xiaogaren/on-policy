@@ -518,10 +518,10 @@ class Scenario(BaseScenario):
             intrinsic_rew += -10
         # if collide
         if agent.collide_punish:
-            rew += -40
+            rew += -1
 
         # punish every step
-        rew += -0.4
+        rew += -0.2
         return intrinsic_rew if world.use_intrinsic_reward else rew
 
     def adversary_reward(self, agent, world):
@@ -546,10 +546,10 @@ class Scenario(BaseScenario):
                 intrinsic_rew += 10
         # if collide
         if agent.collide_punish:
-            rew += -40
+            rew += -1
 
         # punish every step
-        rew += -0.4
+        rew += -0.2
         
         return intrinsic_rew if world.use_intrinsic_reward else rew
 

@@ -4,7 +4,7 @@ scenario="simple_catching_expert_both"  # simple_speaker_listener # simple_refer
 num_landmarks=0
 num_agents=4
 algo="rmappo"
-exp="EnvV3_TargetSpeed1.0_FullMap_Optimize_SparseRW_NoPreyVolo_ExpPrey"
+exp="EnvV3_TargetSpeed1.0_FullMap_Optimize_SparseRW_NoPreyVolo_ExpPrey_test"
 seed_max=1
 step_mode="expert_prey"
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
