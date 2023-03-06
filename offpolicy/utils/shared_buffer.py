@@ -23,11 +23,7 @@ class SharedReplayBuffer(object):
         self.hidden_size = args.hidden_size
         self.recurrent_N = args.recurrent_N
         self.gamma = args.gamma
-        self.gae_lambda = args.gae_lambda
-        self._use_gae = args.use_gae
         self._use_popart = args.use_popart
-        self._use_valuenorm = args.use_valuenorm
-        self._use_proper_time_limits = args.use_proper_time_limits 
 
         max_buffer_size = args.buffer_size
         self.max_buffer_size = max_buffer_size

@@ -9,7 +9,7 @@ class R_MADDPG():
     """
     Trainer class for MADDPG to update policies.
     :param args: (argparse.Namespace) arguments containing relevant model, policy, and env information.
-    :param policy: (R_MAPPO_Policy) policy to update.
+    :param policy: (R_MADDPG_Policy) policy to update.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
     def __init__(self,
@@ -21,24 +21,14 @@ class R_MADDPG():
         self.tpdv = dict(dtype=torch.float32, device=device)
         self.policy = policy
 
-        self.clip_param = args.clip_param
         self.num_update_each = args.num_update_each
         self.batch_size = args.batch_size
-        self.data_chunk_length = args.data_chunk_length
-        self.value_loss_coef = args.value_loss_coef
-        self.entropy_coef = args.entropy_coef
-        self.max_grad_norm = args.max_grad_norm       
-        self.huber_delta = args.huber_delta
+        self.data_chunk_length = args.data_chunk_length  
         self.gamma = args.gamma
 
         self._use_recurrent_policy = args.use_recurrent_policy
         self._use_naive_recurrent = args.use_naive_recurrent_policy
-        self._use_max_grad_norm = args.use_max_grad_norm
-        self._use_clipped_value_loss = args.use_clipped_value_loss
-        self._use_huber_loss = args.use_huber_loss
         self._use_popart = args.use_popart
-        self._use_valuenorm = args.use_valuenorm
-        self._use_value_active_masks = args.use_value_active_masks
         self._use_policy_active_masks = args.use_policy_active_masks
 
         self.use_soft_update = args.use_soft_update

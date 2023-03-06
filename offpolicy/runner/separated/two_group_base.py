@@ -73,10 +73,10 @@ class Runner(object):
                 if not os.path.exists(self.save_dir):
                     os.makedirs(self.save_dir)
 
-        if self.all_args.MADDPG:
+        if self.all_args.algorithm_name == "maddpg":
             from offpolicy.algorithms.r_maddpg.r_maddpg import R_MADDPG as TrainAlgo
             from offpolicy.algorithms.r_maddpg.algorithm.rMADDPGPolicy import R_MADDPGPolicy as Policy
-        elif self.all_args.MAAC:
+        elif self.all_args.algorithm_name == "maac":
             from offpolicy.algorithms.r_maac.r_maac import R_MAAC as TrainAlgo
             from offpolicy.algorithms.r_maac.algorithm.rMAACPolicy import R_MAACPolicy as Policy
 

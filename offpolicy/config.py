@@ -154,11 +154,11 @@ def get_config():
             by default None. set the path to pretrained model.
     """
     parser = argparse.ArgumentParser(
-        description='onpolicy', formatter_class=argparse.RawDescriptionHelpFormatter)
+        description='offpolicy', formatter_class=argparse.RawDescriptionHelpFormatter)
 
     # prepare parameters
     parser.add_argument("--algorithm_name", type=str,
-                        default='mappo', choices=["rmappo", "mappo"])
+                        default='maac', choices=["maac", "maddpg"])
 
     parser.add_argument("--experiment_name", type=str, default="check", help="an identifier to distinguish different experiment.")
     parser.add_argument("--seed", type=int, default=1, help="Random seed for numpy/torch")
@@ -203,7 +203,6 @@ def get_config():
     parser.add_argument("--use_ReLU", action='store_false',
                         default=True, help="Whether to use ReLU")
     parser.add_argument("--use_popart", action='store_true', default=False, help="by default False, use PopArt to normalize rewards.")
-    parser.add_argument("--use_valuenorm", action='store_false', default=True, help="by default True, use running mean and std to normalize rewards.")
     parser.add_argument("--use_feature_normalization", action='store_false',
                         default=True, help="Whether to apply layernorm to the inputs")
     parser.add_argument("--use_orthogonal", action='store_false', default=True,
@@ -229,37 +228,13 @@ def get_config():
                         help='RMSprop optimizer epsilon (default: 1e-5)')
     parser.add_argument("--weight_decay", type=float, default=0)
 
-    # ppo parameters
-    parser.add_argument("--ppo_epoch", type=int, default=15,
-                        help='number of ppo epochs (default: 15)')
-    parser.add_argument("--use_clipped_value_loss",
-                        action='store_false', default=True, help="by default, clip loss value. If set, do not clip loss value.")
-    parser.add_argument("--clip_param", type=float, default=0.2,
-                        help='ppo clip parameter (default: 0.2)')
-    parser.add_argument("--num_mini_batch", type=int, default=1,
-                        help='number of batches for ppo (default: 1)')
-    parser.add_argument("--entropy_coef", type=float, default=0.01,
-                        help='entropy term coefficient (default: 0.01)')
-    parser.add_argument("--value_loss_coef", type=float,
-                        default=1, help='value loss coefficient (default: 0.5)')
-    parser.add_argument("--use_max_grad_norm",
-                        action='store_false', default=True, help="by default, use max norm of gradients. If set, do not use.")
-    parser.add_argument("--max_grad_norm", type=float, default=10.0,
-                        help='max norm of gradients (default: 0.5)')
-    parser.add_argument("--use_gae", action='store_false',
-                        default=True, help='use generalized advantage estimation')
+    # learning algorithm parameters
+
     parser.add_argument("--gamma", type=float, default=0.99,
                         help='discount factor for rewards (default: 0.99)')
-    parser.add_argument("--gae_lambda", type=float, default=0.95,
-                        help='gae lambda parameter (default: 0.95)')
-    parser.add_argument("--use_proper_time_limits", action='store_true',
-                        default=False, help='compute returns taking into account time limits')
-    parser.add_argument("--use_huber_loss", action='store_false', default=True, help="by default, use huber loss. If set, do not use huber loss.")
-    parser.add_argument("--use_value_active_masks",
-                        action='store_false', default=True, help="by default True, whether to mask useless data in value loss.")
+
     parser.add_argument("--use_policy_active_masks",
                         action='store_false', default=True, help="by default True, whether to mask useless data in policy loss.")
-    parser.add_argument("--huber_delta", type=float, default=10.0, help=" coefficience of huber loss.")
 
     # run parameters
     parser.add_argument("--use_linear_lr_decay", action='store_true',
@@ -312,10 +287,6 @@ def get_config():
     parser.add_argument("--update_interval_steps", type=int, default=6400, help="Update intervals for critic and actor(step)")
     parser.add_argument("--num_update_each", type=int, default=20, help="The number of gradient updates")
     parser.add_argument("--buffer_size", type=int, default=5000,help="The maximum buffer size" )
-
-    # use witch algorithm
-    parser.add_argument("--MADDPG", action='store_true', default=False)
-    parser.add_argument("--MAAC", action='store_true', default=False)
                         
     return parser
 
