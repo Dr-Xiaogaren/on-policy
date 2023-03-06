@@ -138,6 +138,7 @@ class R_MADDPG():
         q_loss =  torch.nn.MSELoss()(critic_rets,target_q.detach())
 
         self.policy.critic_optimizer.zero_grad()
+        self.policy.actor_optimizer.zero_grad()
 
         q_loss.backward()
 
@@ -158,7 +159,7 @@ class R_MADDPG():
         policy_loss += (action_probs**2).mean()*1e-3
 
         self.policy.actor_optimizer.zero_grad()
-        # self.policy.critic_optimizer.zero_grad()
+        self.policy.critic_optimizer.zero_grad()
 
         policy_loss.backward()
 

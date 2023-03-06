@@ -5,6 +5,8 @@ from offpolicy.utils.util import get_gard_norm, huber_loss, mse_loss
 from offpolicy.utils.valuenorm import ValueNorm
 from offpolicy.algorithms.utils.util import check
 
+loss = torch.nn.MSELoss()
+
 class R_MAAC():
     """
     Trainer class for MADDPG to update policies.
@@ -135,7 +137,7 @@ class R_MAAC():
         # calculate target Q value
         target_q = return_batch.view(-1,1) + self.gamma*next_Q.view(-1,1)*next_mask_batch.view(-1,1)
         
-        q_loss =  torch.nn.MSELoss()(critic_rets,target_q.detach())
+        q_loss =  loss(critic_rets,target_q.detach())
 
         self.policy.critic_optimizer.zero_grad()
 
@@ -158,7 +160,7 @@ class R_MAAC():
         v = (all_q*action_probs).sum(dim=1,keepdim=True)
         pol_target = curr_q - v
         policy_loss = (log_action_prob*(-pol_target).detach()).mean()
-        # policy_loss += (action_probs**2).mean()*1e-3
+        policy_loss += (action_probs**2).mean()*1e-3
 
         self.policy.actor_optimizer.zero_grad()      
         for p in self.policy.critic.parameters():
