@@ -202,9 +202,9 @@ class R_CNNCritic(nn.Module):
 
         self.action_dim = action_space.n
 
-        self.SA_Encoder = MLPBase(args, input_size=size_for_fc+self.action_dim, layer_N= 3, hidden_size=self.hidden_size)
+        self.SA_Encoder = MLPBase(args, input_size=self.hidden_size+self.action_dim+self.CNNbase.output_size, layer_N= 3, hidden_size=self.hidden_size)
 
-        merge_input_size = (self.num_agents+1)*(self.hidden_size)
+        merge_input_size = (self.num_agents+1)*(self.hidden_size)+self.CNNbase.output_size
         # merge_input_size = self.hidden_size
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
@@ -242,11 +242,15 @@ class R_CNNCritic(nn.Module):
             action_batch = torch.zeros(action_batch.shape[0],self.action_dim, device=self.device).scatter(1,action_batch.to(dtype=torch.int64),1)
         
         state_feature = self.State_Encoder(cent_obs_for_fc)
+        critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
 
-        cent_obs_for_fc_a = torch.cat([cent_obs_for_fc,action_batch], dim=-1)
+        state_feature = torch.cat([state_feature, critic_features_from_cnn],dim=-1)
+
+        cent_obs_for_fc_a = torch.cat([state_feature,action_batch], dim=-1)
+
         state_action_feature = self.SA_Encoder(cent_obs_for_fc_a)
         # encode respectively      
-        # critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
+
         
         # critic_features_from_cnn = critic_features_from_cnn.reshape(-1, self.num_agents,critic_features_from_cnn.size(-1)).repeat(1,self.num_agents,1)
         state_action_feature = state_action_feature.reshape(-1,self.num_agents,state_action_feature.size(-1)).repeat(1,self.num_agents,1)
@@ -257,8 +261,8 @@ class R_CNNCritic(nn.Module):
         # concat and merge
         critic_features = self.MergeLayer(torch.cat([state_feature, state_action_feature], dim=-1))
 
-        # if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-        #     critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
         values = self.v_out(critic_features)
        
         return values, rnn_states
@@ -294,7 +298,7 @@ class R_CNNActor(nn.Module):
         self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
         self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)    
 
-        merge_input_size = self.hidden_size 
+        merge_input_size = self.hidden_size + self.CNNbase.output_size
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
 
@@ -328,13 +332,13 @@ class R_CNNActor(nn.Module):
             available_actions = check(available_actions).to(**self.tpdv)
         
         # encode respectively      
-        # actor_features_from_cnn = self.CNNbase(obs_for_cnn)
+        actor_features_from_cnn = self.CNNbase(obs_for_cnn)
         actor_features_from_fc = self.FCbase(obs_for_fc)
         # concat and merge
-        actor_features = self.MergeLayer(actor_features_from_fc)
+        actor_features = self.MergeLayer(torch.cat([actor_features_from_fc, actor_features_from_cnn],dim=-1))
         # rnn layer
-        # if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-        #     actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
         # output layer
         actions, action_probs = self.act(actor_features, available_actions, deterministic)
 
