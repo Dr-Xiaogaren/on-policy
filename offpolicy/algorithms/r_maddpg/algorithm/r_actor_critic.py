@@ -173,7 +173,7 @@ class R_CNNCritic(nn.Module):
     :param cent_obs_space: (gym.Space) (centralized) observation space.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
-    def __init__(self, args, CNNbase, FCbase, obs_space, cent_obs_space, action_space, device=torch.device("cpu")):
+    def __init__(self, args, obs_space, cent_obs_space, action_space, device=torch.device("cpu")):
         super(R_CNNCritic, self).__init__()
         self.hidden_size = args.hidden_size
 
@@ -195,14 +195,17 @@ class R_CNNCritic(nn.Module):
         self.num_agents = cent_obs_shape["two-dim"].shape[0] // obs_shape["two-dim"].shape[0]
         assert self.num_agents == cent_obs_shape["one-dim"].shape[0] // obs_shape["one-dim"].shape[0]
 
-        self.CNNbase = CNNbase
-        self.FCbase = FCbase
+
+        self.State_Encoder = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
+
+        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)    
 
         self.action_dim = action_space.n
 
-        self.StateActionMerge = MLPBase(args, input_size=self.hidden_size+self.action_dim, layer_N=3, hidden_size=self.hidden_size)
+        self.SA_Encoder = MLPBase(args, input_size=size_for_fc+self.action_dim, layer_N= 3, hidden_size=self.hidden_size)
 
         merge_input_size = (self.num_agents+1)*(self.hidden_size)
+        # merge_input_size = self.hidden_size
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
 
@@ -213,15 +216,12 @@ class R_CNNCritic(nn.Module):
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
-        if self._use_popart:
-            self.v_out = init_(PopArt(self.hidden_size, 1, device=device))
-        else:
-            self.v_out = init_(nn.Linear(self.hidden_size, 1))
+        self.v_out = init_(nn.Linear(self.hidden_size, 1))
 
         self.to(device)
         self.device = device
 
-    def forward(self, obs_batch, action_batch, rnn_states, masks):
+    def forward(self, obs_batch, action_batch, rnn_states, masks, return_all_value=False):
         """
         Compute actions from the given inputs while inference.
         :param cent_obs: (np.ndarray / torch.Tensor) observation inputs into network.
@@ -241,24 +241,26 @@ class R_CNNCritic(nn.Module):
         if action_batch.shape[-1] != self.action_dim:
             action_batch = torch.zeros(action_batch.shape[0],self.action_dim, device=self.device).scatter(1,action_batch.to(dtype=torch.int64),1)
         
+        state_feature = self.State_Encoder(cent_obs_for_fc)
+
+        cent_obs_for_fc_a = torch.cat([cent_obs_for_fc,action_batch], dim=-1)
+        state_action_feature = self.SA_Encoder(cent_obs_for_fc_a)
         # encode respectively      
         # critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
-        critic_features_from_fc = self.FCbase(cent_obs_for_fc)
-        critic_features_from_fc = torch.cat([critic_features_from_fc,action_batch], dim=-1)
-        critic_features_from_fc = self.StateActionMerge(critic_features_from_fc)
-        critic_features_state = critic_features_from_fc
+        
         # critic_features_from_cnn = critic_features_from_cnn.reshape(-1, self.num_agents,critic_features_from_cnn.size(-1)).repeat(1,self.num_agents,1)
-        critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents,critic_features_from_fc.size(-1)).repeat(1,self.num_agents,1)
+        state_action_feature = state_action_feature.reshape(-1,self.num_agents,state_action_feature.size(-1)).repeat(1,self.num_agents,1)
 
 
         # critic_features_from_cnn = critic_features_from_cnn.reshape(-1,self.num_agents*critic_features_from_cnn.size(-1))
-        critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents*critic_features_from_fc.size(-1))
+        state_action_feature = state_action_feature.reshape(-1,self.num_agents*state_action_feature.size(-1))
         # concat and merge
-        critic_features = self.MergeLayer(torch.cat([critic_features_state, critic_features_from_fc], dim=-1))
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
-        values = self.v_out(critic_features)
+        critic_features = self.MergeLayer(torch.cat([state_feature, state_action_feature], dim=-1))
 
+        # if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+        #     critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
+        values = self.v_out(critic_features)
+       
         return values, rnn_states
 
 class R_CNNActor(nn.Module):
@@ -269,7 +271,7 @@ class R_CNNActor(nn.Module):
     :param action_space: (gym.Space) action space.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
-    def __init__(self, args, CNNbase, FCbase, obs_space, action_space, device=torch.device("cpu")):
+    def __init__(self, args, obs_space, action_space, device=torch.device("cpu")):
         super(R_CNNActor, self).__init__()
 
         self.hidden_size = args.hidden_size
@@ -289,15 +291,15 @@ class R_CNNActor(nn.Module):
         self.num_channel = obs_shape["two-dim"].shape[0]
         self.size_for_fc = size_for_fc
 
-        self.CNNbase = CNNbase
-        self.FCbase = FCbase
+        self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
+        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)    
 
         merge_input_size = self.hidden_size 
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
 
-        # if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-        #     self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
 
         self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
 
@@ -338,6 +340,7 @@ class R_CNNActor(nn.Module):
 
         return actions, action_probs, rnn_states
 
+
 class CNNActorAndCritic(nn.Module):
     def __init__(self,args, obs_space, cent_obs_space,action_space, device):
         super(CNNActorAndCritic, self).__init__()
@@ -348,10 +351,7 @@ class CNNActorAndCritic(nn.Module):
         size_for_fc = obs_shape["one-dim"].shape[0]
         self.size_for_fc = size_for_fc
 
-        self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
-        self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
-
-        self.actor = R_CNNActor(args,self.CNNbase,self.FCbase, obs_space, action_space, device=device)
-        self.critic = R_CNNCritic(args,self.CNNbase,self.FCbase, obs_space, cent_obs_space, action_space, device=device)
+        self.actor = R_CNNActor(args, obs_space, action_space, device=device)
+        self.critic = R_CNNCritic(args, obs_space, cent_obs_space, action_space, device=device)
 
         self.to(device)

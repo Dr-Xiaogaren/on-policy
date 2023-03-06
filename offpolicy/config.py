@@ -196,7 +196,7 @@ def get_config():
                         help="Dimension of hidden layers for actor/critic networks")
     parser.add_argument("--use_stacked_frames", action='store_true',
                         default=False, help="Whether to use stacked_frames")
-    parser.add_argument("--hidden_size", type=int, default=128,
+    parser.add_argument("--hidden_size", type=int, default=256,
                         help="Dimension of hidden layers for actor/critic networks") 
     parser.add_argument("--layer_N", type=int, default=1,
                         help="Number of layers for actor/critic networks")
@@ -310,7 +310,7 @@ def get_config():
     # off policy update param
     parser.add_argument("--batch_size",type=int, default=96, help="Batch size for update sample")
     parser.add_argument("--update_interval_steps", type=int, default=6400, help="Update intervals for critic and actor(step)")
-    parser.add_argument("--num_update_each", type=int, default=20, help="The number of gradient updates")
+    parser.add_argument("--num_update_each", type=int, default=5, help="The number of gradient updates")
     parser.add_argument("--buffer_size", type=int, default=600,help="The maximum buffer size" )
 
     # use witch algorithm
