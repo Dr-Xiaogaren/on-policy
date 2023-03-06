@@ -6,8 +6,8 @@ num_agents=4
 algo="rmappo"
 exp="debug"
 seed_max=1
-model_dir="/workspace/on-policy/offpolicy/scripts/results/MPE/simple_catching_expert_both/rmappo/EnvV4_ExpPrey_NoPreyVolo_AddMAAC_test_maac_noRNN_lowRW_highLR/wandb/run-20230302_165728-23l29ld6/files"
-load_model_ep=1600
+model_dir="/workspace/on-policy/offpolicy/scripts/results/MPE/simple_catching_expert_both/rmappo/EnvV4_ExpPrey_NoPreyVolo_Addoffpolicy_SA_BigBuffer/wandb/run-20230306_103640-1h15h4y2/files"
+load_model_ep=1000
 num_test_episode=10
 step_mode="expert_prey" # assert mode == expert_adversary or  expert_both or  expert_prey or  none
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"

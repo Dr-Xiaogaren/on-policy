@@ -37,7 +37,7 @@ class MPERunner(Runner):
                 total_num_steps += self.n_rollout_threads
 
                 # if buffer is enough to train 
-                if all([group_buffer.buffer_size()== self.all_args.buffer_size for group_buffer in self.buffer]) \
+                if all([group_buffer.buffer_size()*self.n_rollout_threads>= 2*self.all_args.batch_size*self.all_args.data_chunk_length for group_buffer in self.buffer]) \
                     and total_num_steps % self.all_args.update_interval_steps < self.n_rollout_threads:
                     if self.use_linear_lr_decay:
                         for group_id in range(self.num_groups):

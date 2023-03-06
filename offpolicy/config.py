@@ -308,10 +308,10 @@ def get_config():
                         help="Polyak update rate")
 
     # off policy update param
-    parser.add_argument("--batch_size",type=int, default=96, help="Batch size for update sample")
+    parser.add_argument("--batch_size",type=int, default=192, help="Batch size for update sample")
     parser.add_argument("--update_interval_steps", type=int, default=6400, help="Update intervals for critic and actor(step)")
     parser.add_argument("--num_update_each", type=int, default=20, help="The number of gradient updates")
-    parser.add_argument("--buffer_size", type=int, default=600,help="The maximum buffer size" )
+    parser.add_argument("--buffer_size", type=int, default=5000,help="The maximum buffer size" )
 
     # use witch algorithm
     parser.add_argument("--MADDPG", action='store_true', default=False)

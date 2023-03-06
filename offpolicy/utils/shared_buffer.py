@@ -109,24 +109,24 @@ class SharedReplayBuffer(object):
 
             for key in self.obs.keys():
                 if len(self.obs[key].shape) == 6:
-                    obs[key] = self.obs[key][:-1].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.obs[key].shape[2:])
+                    obs[key] = self.obs[key][:self.filled_i].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.obs[key].shape[2:])
                 elif len(self.obs[key].shape) == 5:
-                    obs[key] = self.obs[key][:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.obs[key].shape[2:])
+                    obs[key] = self.obs[key][:self.filled_i].transpose(1, 0, 2, 3, 4).reshape(-1, *self.obs[key].shape[2:])
                 else:
-                    obs[key] = _cast_till_agent(self.obs[key][:-1])
+                    obs[key] = _cast_till_agent(self.obs[key][:self.filled_i])
         else:
             if len(self.obs.shape) > 4:
-                obs = self.obs[:-1].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.obs.shape[2:])
+                obs = self.obs[:self.filled_i].transpose(1, 0, 2, 3, 4, 5).reshape(-1, *self.obs.shape[2:])
             else:
-                obs = _cast_till_agent(self.obs[:-1])
+                obs = _cast_till_agent(self.obs[:self.filled_i])
 
-        actions = _cast_till_agent(self.actions)
-        rewards = _cast_till_agent(self.rewards)
-        masks = _cast_till_agent(self.masks[:-1])    
+        actions = _cast_till_agent(self.actions[:self.filled_i])
+        rewards = _cast_till_agent(self.rewards[:self.filled_i])
+        masks = _cast_till_agent(self.masks[:self.filled_i])    
         # rnn_states = _cast(self.rnn_states[:-1])
         # rnn_states_critic = _cast(self.rnn_states_critic[:-1])
-        rnn_states = self.rnn_states[:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states.shape[2:])
-        rnn_states_critic = self.rnn_states_critic[:-1].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states_critic.shape[2:])
+        rnn_states = self.rnn_states[:self.filled_i].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states.shape[2:])
+        rnn_states_critic = self.rnn_states_critic[:self.filled_i].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states_critic.shape[2:])
 
         if self._mixed_obs:
             obs_batch = defaultdict(list)
