@@ -257,8 +257,8 @@ class R_CNNCritic(nn.Module):
         # concat and merge
         critic_features = self.MergeLayer(torch.cat([state_feature, state_action_feature], dim=-1))
 
-        # if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-        #     critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
         all_values = self.v_out(critic_features)
         int_acs = action_batch.max(dim=1, keepdim=True)[1]
         values  = all_values.gather(1, int_acs)
@@ -338,8 +338,8 @@ class R_CNNActor(nn.Module):
         # concat and merge
         actor_features = self.MergeLayer(actor_features_from_fc)
         # rnn layer
-        # if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-        #     actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
         # output layer
         actions, action_probs = self.act(actor_features, available_actions, deterministic)
 
