@@ -354,7 +354,7 @@ class Scenario(BaseScenario):
             agent.size = 0.2 if agent.adversary else 0.2
             agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
-            agent.max_speed = 1.0 if agent.adversary else 0.1
+            agent.max_speed = 1.0 if agent.adversary else 1.0
             agent.grid_index = None
             agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
             agent.rotation_stepsize = math.pi/6
@@ -510,9 +510,9 @@ class Scenario(BaseScenario):
             rew +=  diff_distance*10
         rew = rew/len(adversaries)
         # if catch
-        # for a in adversaries:
-        #     if self.is_collision(a, agent):
-        #         rew -= 5
+        for a in adversaries:
+            if self.is_collision(a, agent):
+                rew -= 5
         if agent.if_dead:
             rew -= 200
             intrinsic_rew += -10
@@ -521,7 +521,7 @@ class Scenario(BaseScenario):
             rew += -1
 
         # punish every step
-        rew += -0.2
+        rew += -0.4
         return intrinsic_rew if world.use_intrinsic_reward else rew
 
     def adversary_reward(self, agent, world):
@@ -537,10 +537,10 @@ class Scenario(BaseScenario):
             rew -=  diff_distance*10
         # if catch
         for ag in agents:
-            # for adv in adversaries:
-            #     if self.is_collision(ag, adv):
-            #         if adv.name == agent.name:
-            #             rew += 5
+            for adv in adversaries:
+                if self.is_collision(ag, adv):
+                    if adv.name == agent.name:
+                        rew += 5
             if ag.if_dead:
                 rew += 200
                 intrinsic_rew += 10
@@ -549,7 +549,7 @@ class Scenario(BaseScenario):
             rew += -1
 
         # punish every step
-        rew += -0.2
+        rew += -0.4
         
         return intrinsic_rew if world.use_intrinsic_reward else rew
 

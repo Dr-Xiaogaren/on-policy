@@ -4,9 +4,9 @@ scenario="simple_catching_expert_both"  # simple_speaker_listener # simple_refer
 num_landmarks=0
 num_agents=4
 algo="maddpg"
-exp="EnvV4_ExpPrey_NoPreyVolo_full"
+exp="EnvV4_NoPreyVolo_full_1V1_SameAsMAPPO_withCOllideRW"
 seed_max=1
-step_mode="expert_prey"
+step_mode="none"
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do
