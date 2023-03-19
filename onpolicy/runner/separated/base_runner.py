@@ -66,9 +66,13 @@ class Runner(object):
                 if not os.path.exists(self.save_dir):
                     os.makedirs(self.save_dir)
 
+        if self.algorithm_name=="r_mappo":
+            from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
+            from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
+        elif self.algorithm_name=="r_ippo":
+            from onpolicy.algorithms.r_ippo.r_mappo import R_IPPO as TrainAlgo
+            from onpolicy.algorithms.r_ippo.algorithm.rMAPPOPolicy import R_IPPOPolicy as Policy
 
-        from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
-        from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
 
 
         self.policy = []
@@ -115,7 +119,7 @@ class Runner(object):
     def compute(self):
         for agent_id in range(self.num_agents):
             self.trainer[agent_id].prep_rollout()
-            next_value = self.trainer[agent_id].policy.get_values(self.buffer[agent_id].share_obs[-1], 
+            next_value = self.trainer[agent_id].policy.get_values(self.buffer[agent_id].obs[-1], 
                                                                 self.buffer[agent_id].rnn_states_critic[-1],
                                                                 self.buffer[agent_id].masks[-1])
             next_value = _t2n(next_value)

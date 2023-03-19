@@ -119,7 +119,7 @@ class MPERunner(Runner):
                 obs_input[key] = self.buffer[group_id].obs[key][step]
 
             value, action, action_log_prob, rnn_states, rnn_states_critic \
-                = self.trainer[group_id].policy.get_actions(share_obs_input,
+                = self.trainer[group_id].policy.get_actions(
                             obs_input,
                             np.concatenate(self.buffer[group_id].rnn_states[step]),
                             np.concatenate(self.buffer[group_id].rnn_states_critic[step]),

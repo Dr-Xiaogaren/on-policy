@@ -215,38 +215,10 @@ class R_CNNCritic(nn.Module):
 
         self.to(device)
 
-    def forward(self, cent_obs, rnn_states, masks):
+    def forward(self, obs_batch, rnn_states, masks):
         """
         Compute actions from the given inputs while inference.
         :param cent_obs: (np.ndarray / torch.Tensor) observation inputs into network.
-        :param rnn_states: (np.ndarray / torch.Tensor) if RNN network, hidden states for RNN.
-        :param masks: (np.ndarray / torch.Tensor) mask tensor denoting if RNN states should be reinitialized to zeros.
-
-        :return values: (torch.Tensor) value function predictions.
-        :return rnn_states: (torch.Tensor) updated RNN hidden states.
-        """
-        cent_obs_for_cnn = check(cent_obs["two-dim"]).to(**self.tpdv).reshape(-1,self.num_channel,self.obs_height,self.obs_height)
-        cent_obs_for_fc = check(cent_obs["one-dim"]).to(**self.tpdv).reshape(-1,self.size_for_fc)
-        rnn_states = check(rnn_states).to(**self.tpdv)
-        masks = check(masks).to(**self.tpdv)
-        
-        # encode respectively      
-        critic_features_from_cnn = self.CNNbase(cent_obs_for_cnn)
-        critic_features_from_fc = self.FCbase(cent_obs_for_fc)
-        critic_features_from_cnn = critic_features_from_cnn.reshape(-1,self.num_agents*critic_features_from_cnn.size(-1))
-        critic_features_from_fc = critic_features_from_fc.reshape(-1,self.num_agents*critic_features_from_fc.size(-1))
-        # concat and merge
-        critic_features = self.MergeLayer(torch.cat([critic_features_from_cnn, critic_features_from_fc],dim=1))
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
-        values = self.v_out(critic_features)
-
-        return values, rnn_states
-    
-    def batch_forward(self, obs_batch, rnn_states, masks):
-        """
-        Compute actions from the given inputs when training.
-        :param obs_batch: (np.ndarray / torch.Tensor) observation inputs into network.
         :param rnn_states: (np.ndarray / torch.Tensor) if RNN network, hidden states for RNN.
         :param masks: (np.ndarray / torch.Tensor) mask tensor denoting if RNN states should be reinitialized to zeros.
 
@@ -275,6 +247,7 @@ class R_CNNCritic(nn.Module):
         values = self.v_out(critic_features)
 
         return values, rnn_states
+    
 
 class R_CNNActor(nn.Module):
     """

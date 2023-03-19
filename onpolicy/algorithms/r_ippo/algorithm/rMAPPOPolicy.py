@@ -1,11 +1,11 @@
 import torch
-from onpolicy.algorithms.r_mappo.algorithm.r_actor_critic import R_Actor, R_Critic, R_CNNActor, R_CNNCritic, CNNActorAndCritic
+from onpolicy.algorithms.r_ippo.algorithm.r_actor_critic import R_Actor, R_Critic, R_CNNActor, R_CNNCritic, CNNActorAndCritic
 from onpolicy.utils.util import update_linear_schedule
 from onpolicy.algorithms.utils.util import check
 
-class R_MAPPOPolicy:
+class R_IPPOPolicy:
     """
-    MAPPO Policy  class. Wraps actor and critic networks to compute actions and value function predictions.
+    IPPO Policy  class. Wraps actor and critic networks to compute actions and value function predictions.
 
     :param args: (argparse.Namespace) arguments containing relevant model and policy information.
     :param obs_space: (gym.Space) observation space.
@@ -47,7 +47,7 @@ class R_MAPPOPolicy:
         update_linear_schedule(self.actor_optimizer, episode, episodes, self.lr)
         update_linear_schedule(self.critic_optimizer, episode, episodes, self.critic_lr)
 
-    def get_actions(self, cent_obs, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None,
+    def get_actions(self, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None,
                     deterministic=False):
         """
         Compute actions and value function predictions for the given inputs.
@@ -72,10 +72,10 @@ class R_MAPPOPolicy:
                                                                  available_actions,
                                                                  deterministic)
 
-        values, rnn_states_critic = self.critic(cent_obs, rnn_states_critic, masks)
+        values, rnn_states_critic = self.critic(obs, rnn_states_critic, masks)
         return values, actions, action_log_probs, rnn_states_actor, rnn_states_critic
 
-    def get_values(self, cent_obs, rnn_states_critic, masks):
+    def get_values(self, obs, rnn_states_critic, masks):
         """
         Get value function predictions.
         :param cent_obs (np.ndarray): centralized input to the critic.
@@ -84,10 +84,10 @@ class R_MAPPOPolicy:
 
         :return values: (torch.Tensor) value function predictions.
         """
-        values, _ = self.critic(cent_obs, rnn_states_critic, masks)
+        values, _ = self.critic(obs, rnn_states_critic, masks)
         return values
 
-    def evaluate_actions(self, cent_obs, obs, rnn_states_actor, rnn_states_critic, action, masks,
+    def evaluate_actions(self, obs, rnn_states_actor, rnn_states_critic, action, masks,
                          available_actions=None, active_masks=None):
         """
         Get action logprobs / entropy and value function predictions for actor update.
@@ -112,7 +112,7 @@ class R_MAPPOPolicy:
                                                                      available_actions,
                                                                      active_masks)
 
-        values, _ = self.critic.batch_forward(obs, rnn_states_critic, masks)
+        values, _ = self.critic(obs, rnn_states_critic, masks)
 
         return values, action_log_probs, dist_entropy
 

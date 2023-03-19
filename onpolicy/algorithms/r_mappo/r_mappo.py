@@ -114,7 +114,7 @@ class R_MAPPO():
             obs_batch[key] = check(obs_batch[key]).to(**self.tpdv)
 
         # Reshape to do in a single forward pass for all steps
-        values, action_log_probs, dist_entropy = self.policy.evaluate_actions(share_obs_batch,
+        values, action_log_probs, dist_entropy = self.policy.evaluate_actions(
                                                                               obs_batch, 
                                                                               rnn_states_batch, 
                                                                               rnn_states_critic_batch, 

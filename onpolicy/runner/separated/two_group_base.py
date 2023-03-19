@@ -137,11 +137,11 @@ class Runner(object):
             #                                                     self.buffer[agent_id].masks[-1])
             # next_value = _t2n(next_value)
             # self.buffer[agent_id].compute_returns(next_value, self.trainer[group_id].value_normalizer)
-            share_obs_input = dict()
+            obs_input = dict()
             for key in self.obs_dict_keys:
-                share_obs_input[key] = self.buffer[group_id].share_obs[key][-1]
+                obs_input[key] = self.buffer[group_id].obs[key][-1]
 
-            next_values = self.trainer[group_id].policy.get_values(share_obs_input,
+            next_values = self.trainer[group_id].policy.get_values(obs_input,
                                                 np.concatenate(self.buffer[group_id].rnn_states_critic[-1]),
                                                 np.concatenate(self.buffer[group_id].masks[-1]))
             next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
