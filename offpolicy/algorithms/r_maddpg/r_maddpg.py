@@ -38,11 +38,6 @@ class R_MADDPG():
         q_loss, critic_grad_norm = self.update_critic(sample)
         policy_loss, action_probs, actor_grad_norm = self.update_policy(sample)
         # q_loss, critic_grad_norm, policy_loss, action_probs, actor_grad_norm = self.update_together(sample)
-
-        if self.use_soft_update:
-            self.policy.soft_target_updates()
-        else:
-            self.policy.hard_target_updates()
         
         entropy = torch.sum(-torch.log(action_probs)*action_probs, dim=-1).mean()
 
@@ -77,6 +72,11 @@ class R_MADDPG():
                 train_info['actor_grad_norm'] += actor_grad_norm
                 train_info['critic_grad_norm'] += critic_grad_norm
 
+        if self.use_soft_update:
+            self.policy.soft_target_updates()
+        else:
+            self.policy.hard_target_updates()
+            
         num_updates = self.num_update_each
 
         for k in train_info.keys():
