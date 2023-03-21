@@ -507,7 +507,7 @@ class Scenario(BaseScenario):
         for adv in adversaries:
             diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - adv.state.p_pos))) \
                             - np.sqrt(np.sum(np.square(agent.last_pos - adv.last_pos)))
-            rew +=  diff_distance*10
+            rew +=  diff_distance*50
         rew = rew/len(adversaries)
         # if catch
         for a in adversaries:
@@ -516,9 +516,14 @@ class Scenario(BaseScenario):
         if agent.if_dead:
             rew -= 200
             intrinsic_rew += -10
+
         # if collide
         if agent.collide_punish:
             rew += -1
+        
+        # stop publish
+        if agent.action.u[1]==agent.action.u[0]==0:
+            rew += -0.3
 
         # punish every step
         rew += -0.4
@@ -534,7 +539,7 @@ class Scenario(BaseScenario):
         for ag in agents:
             diff_distance =np.sqrt(np.sum(np.square(agent.state.p_pos - ag.state.p_pos))) \
                             - np.sqrt(np.sum(np.square(agent.last_pos - ag.last_pos)))
-            rew -=  diff_distance*10
+            rew -=  diff_distance*50
         # if catch
         for ag in agents:
             for adv in adversaries:
@@ -547,6 +552,10 @@ class Scenario(BaseScenario):
         # if collide
         if agent.collide_punish:
             rew += -1
+
+        # stop publish
+        if agent.action.u[1]==agent.action.u[0]==0:
+            rew += -0.3
 
         # punish every step
         rew += -0.4
