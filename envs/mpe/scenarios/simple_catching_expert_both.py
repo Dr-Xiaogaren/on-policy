@@ -512,7 +512,7 @@ class Scenario(BaseScenario):
         # if catch
         for a in adversaries:
             if self.is_collision(a, agent):
-                rew -= 5
+                rew -= 5/len(adversaries)
         if agent.if_dead:
             rew -= 200
             intrinsic_rew += -10
