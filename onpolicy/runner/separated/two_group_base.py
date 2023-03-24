@@ -74,8 +74,12 @@ class Runner(object):
                     os.makedirs(self.save_dir)
 
 
-        from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
-        from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
+        if self.algorithm_name=="rmappo":
+            from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
+            from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
+        elif self.algorithm_name=="rippo":
+            from onpolicy.algorithms.r_ippo.r_mappo import R_IPPO as TrainAlgo
+            from onpolicy.algorithms.r_ippo.algorithm.rMAPPOPolicy import R_IPPOPolicy as Policy
 
 
         self.policy = []
