@@ -307,7 +307,7 @@ def main(args):
         sr_ls.append(success_rate)
 
     fo = open(runner.save_dir+'/'+all_args.step_mode+'.csv','w')
-    fo.write('num_ep','episode length'+',STD'+',success_rate\n')
+    fo.write('num_ep'+'episode length'+',STD'+',success_rate\n')
     for n_ep, length, s_r in zip(file_list,ep_len_ls,sr_ls):
         fo.write('{},{},{},{}\n'.format(n_ep, length[0], length[1], s_r))
     fo.close()
