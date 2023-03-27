@@ -157,8 +157,8 @@ def main(args):
             if 'actor_group0' in f: 
                 ep = f.split('-')[-1][2:-3]
                 file_list.append(int(ep))
-    elif type(load_model_ep)==type(file_list):
-        file_list = load_model_ep
+    else:
+        file_list = [load_model_ep]
     file_list.sort()
     all_args.load_model_ep = file_list[0]
     print("Models waiting for test:",file_list)
@@ -307,7 +307,7 @@ def main(args):
         sr_ls.append(success_rate)
 
     fo = open(runner.save_dir+'/'+all_args.step_mode+'.csv','w')
-    fo.write('num_ep'+'episode length'+',STD'+',success_rate\n')
+    fo.write('num_ep'+',episode length'+',STD'+',success_rate\n')
     for n_ep, length, s_r in zip(file_list,ep_len_ls,sr_ls):
         fo.write('{},{},{},{}\n'.format(n_ep, length[0], length[1], s_r))
     fo.close()

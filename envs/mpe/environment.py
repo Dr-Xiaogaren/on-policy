@@ -478,7 +478,16 @@ class CatchingEnv(MultiAgentEnv):
         colored = np.zeros((m,n,3))
         pal = sns.color_palette('Paired', 16)
 
-        current_palette = [(0.6, 0.6, 0.6)]
+        
+
+        if self.world.args.step_mode == "voronoi_based":
+            voronoi_palette = [(0.97, 0.77, 0.7),(0.72, 0.9, 0.99)]
+            voronoi_prey = self.world.Voronoi_map == (len(self.agents)-1)
+            voronoi_ad = (self.world.Voronoi_map >= 0)*(1-voronoi_prey)
+            colored = self.fill_color(colored, voronoi_ad, voronoi_palette[0])
+            colored = self.fill_color(colored, voronoi_prey, voronoi_palette[1])
+
+        current_palette = [(0.05, 0.05, 0.05)]
         colored = self.fill_color(colored, grid, current_palette[0])
 
         for agent in self.agents:
@@ -587,7 +596,7 @@ class CatchingEnvExpert(CatchingEnv):
         super().__init__(world, reset_callback, reward_callback, observation_callback, info_callback, done_callback, post_step_callback, shared_viewer, discrete_action)
     
     def step(self, action_n, mode=None):
-        assert mode == "expert_adversary" or mode == "expert_both" or mode == "expert_prey" or mode == "none"
+        assert mode == "expert_adversary" or mode == "expert_both" or mode == "expert_prey" or mode == "none" or mode == "voronoi_based"
         self.current_step += 1
         obs_n = []
         reward_n = []
@@ -600,8 +609,11 @@ class CatchingEnvExpert(CatchingEnv):
             if agent.adversary:
                 if mode == "expert_adversary" or mode == "expert_both":
                     action_n[i] = self.world.get_expert_action(agent)
+                elif mode == "voronoi_based":
+                    action_n[i] = self.world.get_voronoi_based_action(agent)
+
             else:
-                if mode == "expert_prey" or mode == "expert_both":
+                if mode == "expert_prey" or mode == "expert_both" or mode == "voronoi_based":
                     action_n[i] = self.world.get_expert_action(agent)
 
             self._set_action(action_n[i], agent, self.action_space[i])

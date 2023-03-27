@@ -13,8 +13,9 @@ import random
 import math
 import imageio
 import copy
-
+from numpy import ma
 from torch import arcsin
+import skfmm
 class ExpWorld(World):
     def __init__(self, args):
         super().__init__()
@@ -300,6 +301,187 @@ class ExpWorld(World):
         
         return action
 
+
+    def get_safe_reachable_area(self):
+        num_agents = len(self.agents)
+        FMM_result_map = np.zeros((num_agents,*self.trav_map.shape))
+        # selem = skimage.morphology.disk(int(agent.size/self.trav_map_resolution))
+        # obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
+        obstacle_grid = self.trav_map
+        trav_map = 1 - obstacle_grid  # free cell is 1, obstacle is zero
+        for i, ag in enumerate(self.agents): 
+            # caculate the travel distance from all free cells to agent       
+            traversible_ma = ma.masked_values(trav_map, 0)
+            traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+            distance_map = skfmm.distance(traversible_ma,dx=1/ag.max_speed)
+            distance_map = ma.filled(distance_map,float("inf"))
+            FMM_result_map[i] = np.copy(distance_map)
+        
+        # the voronoi
+        Voronoi_map = np.argmin(FMM_result_map, axis=0) - obstacle_grid
+
+        # calculate another time to delete the redundant part
+        for i, ag in enumerate(self.agents):
+            if not ag.adversary:
+                masked_area = Voronoi_map == (num_agents-1)
+                masked_area = masked_area*trav_map
+                traversible_ma = ma.masked_values(masked_area, 0)
+                traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+                distance_map = skfmm.distance(traversible_ma,dx=1/ag.max_speed)
+                distance_map = ma.filled(distance_map,float("inf"))
+                FMM_result_map[i] = np.copy(distance_map)  
+
+        Voronoi_map = np.argmin(FMM_result_map, axis=0) - obstacle_grid
+
+        return Voronoi_map
+
+
+    def get_voronoi_based_action(self, agent):
+        num_agents = len(self.agents)
+        FMM_result_map = np.zeros((num_agents,*self.trav_map.shape))
+        # selem = skimage.morphology.disk(int(agent.size/self.trav_map_resolution))
+        # obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
+        obstacle_grid = self.trav_map
+        trav_map = 1 - obstacle_grid  # free cell is 1, obstacle is zero
+        for i, ag in enumerate(self.agents): 
+            # caculate the travel distance from all free cells to agent       
+            traversible_ma = ma.masked_values(trav_map, 0)
+            traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+            distance_map = skfmm.distance(traversible_ma,dx=1/ag.max_speed)
+            distance_map = ma.filled(distance_map,float("inf"))
+            FMM_result_map[i] = np.copy(distance_map)
+        
+        # the voronoi
+        Voronoi_map = np.argmin(FMM_result_map, axis=0) - obstacle_grid
+
+        # calculate another time to delete the redundant part
+        for i, ag in enumerate(self.agents):
+            if not ag.adversary:
+                masked_area = Voronoi_map == (num_agents-1)
+                masked_area = masked_area*trav_map
+                traversible_ma = ma.masked_values(masked_area, 0)
+                traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+                distance_map = skfmm.distance(traversible_ma,dx=1/ag.max_speed)
+                distance_map = ma.filled(distance_map,float("inf"))
+                FMM_result_map[i] = np.copy(distance_map)  
+
+        Voronoi_map = np.argmin(FMM_result_map, axis=0) - obstacle_grid
+        self.Voronoi_map = Voronoi_map                    
+
+        action_list = [[1,0,0,0,0],[0,0,0,0,1],[0,0,1,0,0],[0,1,0,0,0]]
+        change_of_safe_reachable_set = []
+        distance_to_prey = []
+        FMM_result_map_new = np.zeros((num_agents,*self.trav_map.shape))
+        for action in action_list:
+            new_pos, if_collide = self.virtual_step(agent,action)
+            if not if_collide:
+                for i, ag in enumerate(self.agents): 
+                    # caculate the travel distance from all free cells to agent       
+                    traversible_ma = ma.masked_values(trav_map, 0)
+                    if ag is agent:
+                        new_index = self.world_to_grid(new_pos)
+                        traversible_ma[new_index[0],new_index[1]] = 0
+                    else:
+                        traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+                    
+                    distance_map = skfmm.distance(traversible_ma,dx=ag.max_speed)
+                    distance_map = ma.filled(distance_map,float("inf"))
+                    FMM_result_map_new[i] = np.copy(distance_map)
+                    if  not ag.adversary:
+                        new_index = self.world_to_grid(new_pos)
+                        distance_to_prey.append(distance_map[new_index[0],new_index[1]])
+
+                Voronoi_map_new = np.argmin(FMM_result_map_new, axis=0) - obstacle_grid
+
+                        # calculate another time to delete the redundant part
+                for i, ag in enumerate(self.agents):
+                    if not ag.adversary:
+                        masked_area = Voronoi_map_new == (num_agents-1)
+                        masked_area = masked_area*trav_map
+                        traversible_ma = ma.masked_values(masked_area, 0)
+                        traversible_ma[ag.grid_index[0],ag.grid_index[1]] = 0
+                        distance_map = skfmm.distance(traversible_ma,dx=1/ag.max_speed)
+                        distance_map = ma.filled(distance_map,float("inf"))
+                        FMM_result_map_new[i] = np.copy(distance_map)  
+
+                Voronoi_map_new = np.argmin(Voronoi_map_new, axis=0) - obstacle_grid
+    
+                area_change = np.sum(Voronoi_map_new == (num_agents-1)) - np.sum(Voronoi_map == (num_agents-1))
+                change_of_safe_reachable_set.append(area_change)
+            else:
+                change_of_safe_reachable_set.append(np.sum(trav_map))
+                if not ag.adversary:
+                    new_index = self.world_to_grid(new_pos)
+                    distance_to_prey.append(distance_map[new_index[0],new_index[1]])
+
+        optimal_action_index = change_of_safe_reachable_set.index(min(change_of_safe_reachable_set))
+        optimal_action = action_list[optimal_action_index]
+
+        # if agent has no control line with prey
+        if sum(change_of_safe_reachable_set) == len(action_list)*min(change_of_safe_reachable_set):
+            optimal_action_index = distance_to_prey.index(min(distance_to_prey))
+            optimal_action = action_list[optimal_action_index]
+
+        return optimal_action
+
+    
+    def virtual_step(self, agent, action):
+        if_collide = False
+        agent_loc = np.copy(agent.state.p_pos)
+        agent_orien = np.copy(agent.orientation)
+        fw_acceleration = 1.0
+
+        # apply rotation
+        if action == [0,0,1,0,0]:
+            agent_orien -= agent.rotation_stepsize
+            fw_acceleration = 0.8
+        elif action == [0,1,0,0,0]:
+            agent_orien += agent.rotation_stepsize
+            fw_acceleration = 0.8  
+        elif action == [1,0,0,0,0]:
+            fw_acceleration = 1.0
+        elif action == [0,0,0,0,1]:
+            fw_acceleration = -2.0   
+        # apply action force
+        orientation = np.array([math.cos(agent_orien), math.sin(agent_orien) ])
+        p_force = (agent.mass * agent.accel if agent.accel is not None else agent.mass) * fw_acceleration * orientation
+
+        # apply env force
+        for b, entity_b in enumerate(self.entities):
+            if entity_b is agent:
+                continue
+            [f_a, f_b] = self.get_entity_collision_force(self.agents.index(agent), b)
+            if(f_a is not None):
+                p_force = f_a + p_force
+        
+        # apply force
+        p_vel = agent.state.p_vel * (1 - self.damping)
+        p_vel += (p_force / agent.mass) * self.dt
+        if agent.max_speed is not None:
+            speed = np.sqrt(
+                np.square(agent.state.p_vel[0]) + np.square(agent.state.p_vel[1]))
+            if speed > agent.max_speed:
+                p_vel = agent.state.p_vel / np.sqrt(np.square(agent.state.p_vel[0]) +
+                                                                    np.square(agent.state.p_vel[1])) * agent.max_speed
+        # if the action won't make agent get rid of collision, agent will not move anymore
+        p_pos = agent.state.p_pos + p_vel * self.dt
+
+        origin_p_pos = np.copy(agent.state.p_pos)
+        agent.state.p_pos = p_pos
+        if_collide = self.check_obstacle_collision(agent)
+        agent.state.p_pos = origin_p_pos
+
+        return p_pos, if_collide
+
+    def if_will_collide(self,agent):
+        action_list = [[1,0,0,0,0],[0,0,0,0,1],[0,0,1,0,0],[0,1,0,0,0]]
+        will_collide = self.check_obstacle_collision(agent)
+        for action in action_list:
+            new_pos, if_collide = self.virtual_step(agent,action)
+            will_collide = will_collide and if_collide
+        
+        return will_collide
+
     def get_virtual_force_from_wall(self,agent):
         force_from_wall = np.zeros((self.dim_c,))
         max_distance = agent.size*2
@@ -354,7 +536,7 @@ class Scenario(BaseScenario):
             agent.size = 0.2 if agent.adversary else 0.2
             agent.accel = 3.0 if agent.adversary else 4.0
             #agent.accel = 20.0 if agent.adversary else 25.0
-            agent.max_speed = 1.0 if agent.adversary else 1.0
+            agent.max_speed = args.adversary_speed if agent.adversary else args.good_agent_speed
             agent.grid_index = None
             agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
             agent.rotation_stepsize = math.pi/6
@@ -680,7 +862,7 @@ def main():
             for j in range(4):
                 # random.shuffle(one_action)
                 action.append(copy.copy(one_action))
-            obs_n, reward_n, done_n, info_n = env.step(action, mode=args.step_mode)
+            obs_n, reward_n, done_n, info_n = env.step(action, mode='voronoi_based')
             # print("reward_n:",reward_n)
             # print("done:",done_n)
             # img = env.render()

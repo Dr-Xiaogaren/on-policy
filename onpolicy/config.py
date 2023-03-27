@@ -299,7 +299,9 @@ def get_config():
     parser.add_argument("--observation_dict", type=list, default=["one-dim","two-dim"], help="the keys of observation space")
     parser.add_argument("--step_mode", type=str, default="none", help=" assert mode == expert_adversary or mode == expert_both or mode == expert_prey or mode == none" )
     parser.add_argument("--use_intrinsic_reward", action='store_true', default=False, help="use_intrinsic_reward")
-
+    parser.add_argument("--adversary_speed", type=float,default=1.0, help='Speed of Predator, m/s')
+    parser.add_argument("--good_agent_speed", type=float,default=1.0, help='Speed of Prey, m/s')
+    
     # imitation learning
     parser.add_argument("--expert_path_gp0", type=str, default="/workspace/tmp/data/chaser_trajectory_1.0.npz", help="set the path to the expert trajectory of predators")
     parser.add_argument("--expert_path_gp1", type=str, default="/workspace/tmp/data/evader_trajectory_1.0.npz", help="set the path to the expert trajectory of preys")
