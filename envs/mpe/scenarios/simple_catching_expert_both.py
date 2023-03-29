@@ -89,25 +89,32 @@ class ExpWorld(World):
         return if_collide
     
     def check_if_dead(self, entity):
-        # check if agent is no way out
-        pos = np.copy(entity.state.p_pos)
-        shift_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
-                       math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
-        shift_margin = 0.3
-        collide_num = 0
-        for shift in shift_degree:
-            entity.state.p_pos = pos +  np.array([math.sin(shift),math.cos(shift)])*shift_margin
-            if self.check_obstacle_collision(entity):
-                collide_num += 1
-                continue
-            else:
-                for a in self.agents:
-                    if self.check_agent_collision(a, entity) and a.name!=entity.name:
-                        collide_num += 1
-                        break
-        entity.state.p_pos = pos
+        if not self.args.use_strict_terminal:
+            # check if agent is no way out
+            pos = np.copy(entity.state.p_pos)
+            shift_degree = [0, math.pi/6, math.pi/3, math.pi/2, 2*math.pi/3, 5*math.pi/6, 
+                        math.pi, 7*math.pi/6, 4*math.pi/3 ,3*math.pi/2, 5*math.pi/3 ,11*math.pi/6]
+            shift_margin = 0.3
+            collide_num = 0
+            for shift in shift_degree:
+                entity.state.p_pos = pos +  np.array([math.sin(shift),math.cos(shift)])*shift_margin
+                if self.check_obstacle_collision(entity):
+                    collide_num += 1
+                    continue
+                else:
+                    for a in self.agents:
+                        if self.check_agent_collision(a, entity) and a.name!=entity.name:
+                            collide_num += 1
+                            break
+            entity.state.p_pos = pos
 
-        return True if collide_num == len(shift_degree) else False
+            return True if collide_num == len(shift_degree) else False
+        else:
+            voronoi_map = self.get_safe_reachable_area()
+            voronoi_prey = voronoi_map == (len(self.agents)-1)
+            area_of_ASZ = np.sum(voronoi_prey)
+            size_of_prey = np.pi*(entity.size*1.5/self.trav_map_resolution)**2
+            return True if area_of_ASZ<=size_of_prey else False
 
     
 

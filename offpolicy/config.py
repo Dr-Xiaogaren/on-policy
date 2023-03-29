@@ -276,6 +276,7 @@ def get_config():
     parser.add_argument("--use_intrinsic_reward", action='store_true', default=False, help="use_intrinsic_reward")
     parser.add_argument("--adversary_speed", type=float,default=1.0, help='Speed of Predator, m/s')
     parser.add_argument("--good_agent_speed", type=float,default=1.0, help='Speed of Prey, m/s')
+    parser.add_argument("--use_strict_terminal", action='store_true', default=False, help="if use the restrict terminal condition")
 
 
     # soft update parameters

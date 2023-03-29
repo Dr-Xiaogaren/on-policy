@@ -301,6 +301,7 @@ def get_config():
     parser.add_argument("--use_intrinsic_reward", action='store_true', default=False, help="use_intrinsic_reward")
     parser.add_argument("--adversary_speed", type=float,default=1.0, help='Speed of Predator, m/s')
     parser.add_argument("--good_agent_speed", type=float,default=1.0, help='Speed of Prey, m/s')
+    parser.add_argument("--use_strict_terminal", action='store_true', default=False, help="if use the restrict terminal condition")
     
     # imitation learning
     parser.add_argument("--expert_path_gp0", type=str, default="/workspace/tmp/data/chaser_trajectory_1.0.npz", help="set the path to the expert trajectory of predators")

@@ -480,12 +480,13 @@ class CatchingEnv(MultiAgentEnv):
 
         
 
-        if self.world.args.step_mode == "voronoi_based":
-            voronoi_palette = [(0.97, 0.77, 0.7),(0.72, 0.9, 0.99)]
-            voronoi_prey = self.world.Voronoi_map == (len(self.agents)-1)
-            voronoi_ad = (self.world.Voronoi_map >= 0)*(1-voronoi_prey)
-            colored = self.fill_color(colored, voronoi_ad, voronoi_palette[0])
-            colored = self.fill_color(colored, voronoi_prey, voronoi_palette[1])
+        # for "voronoi_based":
+        voronoi_palette = [(0.97, 0.77, 0.7),(0.72, 0.9, 0.99)]
+        Voronoi_map = self.world.get_safe_reachable_area()
+        voronoi_prey = Voronoi_map == (len(self.agents)-1)
+        voronoi_ad = (Voronoi_map >= 0)*(1-voronoi_prey)
+        colored = self.fill_color(colored, voronoi_ad, voronoi_palette[0])
+        colored = self.fill_color(colored, voronoi_prey, voronoi_palette[1])
 
         current_palette = [(0.05, 0.05, 0.05)]
         colored = self.fill_color(colored, grid, current_palette[0])
