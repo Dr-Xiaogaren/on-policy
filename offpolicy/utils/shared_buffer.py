@@ -90,7 +90,7 @@ class SharedReplayBuffer(object):
 
         return self.step
 
-    def recurrent_generator(self, batch_size, data_chunk_length):
+    def recurrent_generator(self,num_batch, batch_size, data_chunk_length):
         _ , n_rollout_threads, num_agents = self.rewards.shape[0:3]
         n_records = n_rollout_threads * (self.filled_i-1)
         data_chunks = n_records // data_chunk_length - 2
@@ -98,7 +98,7 @@ class SharedReplayBuffer(object):
         rand = torch.randperm(data_chunks).numpy() # make sure no overflow
 
 
-        sampler = rand[0:batch_size]
+        sampler_all = [rand[0:batch_size] for _ in range(num_batch)]
 
         if self._mixed_obs:
             obs = {}
@@ -124,97 +124,98 @@ class SharedReplayBuffer(object):
         rnn_states = self.rnn_states[:self.filled_i].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states.shape[2:])
         rnn_states_critic = self.rnn_states_critic[:self.filled_i].transpose(1, 0, 2, 3, 4).reshape(-1, *self.rnn_states_critic.shape[2:])
 
-        if self._mixed_obs:
-            obs_batch = defaultdict(list)
-            next_obs_batch = defaultdict(list)
-        else:
-            obs_batch = []
-            next_obs_batch = []
-
-        rnn_states_batch = []
-        next_rnn_states_batch = []
-
-        rnn_states_critic_batch = []
-        next_rnn_states_critic_batch = []
-
-        actions_batch = []
-        reward_batch = []
-
-        masks_batch = []
-        next_masks_batch = []
-
-        for index in sampler:
-            ind = index * data_chunk_length
-            # size [T+1 N M Dim]-->[T N M Dim]-->[N,M,T,Dim]-->[N*M*T,Dim]-->[L,Dim]
+        for sampler in sampler_all:
             if self._mixed_obs:
-                for key in obs.keys():
-                    obs_batch[key].append(obs[key][ind:ind+data_chunk_length])
-                    next_obs_batch[key].append(obs[key][ind+1:ind+data_chunk_length+1])
+                obs_batch = defaultdict(list)
+                next_obs_batch = defaultdict(list)
             else:
-                obs_batch.append(obs[ind:ind+data_chunk_length])
-                next_obs_batch.append(obs[ind+1:ind+data_chunk_length+1])
+                obs_batch = []
+                next_obs_batch = []
 
-            actions_batch.append(actions[ind:ind+data_chunk_length])
+            rnn_states_batch = []
+            next_rnn_states_batch = []
 
-            reward_batch.append(rewards[ind:ind+data_chunk_length])
+            rnn_states_critic_batch = []
+            next_rnn_states_critic_batch = []
 
-            masks_batch.append(masks[ind:ind+data_chunk_length])
-            next_masks_batch.append(masks[ind+1:ind+data_chunk_length+1])
-            # size [T+1 N M Dim]-->[T N M Dim]-->[N M T Dim]-->[N*M*T,Dim]-->[1,Dim]
-            rnn_states_batch.append(rnn_states[ind])
-            next_rnn_states_batch.append(rnn_states[ind+1])
+            actions_batch = []
+            reward_batch = []
 
-            rnn_states_critic_batch.append(rnn_states_critic[ind])
-            next_rnn_states_critic_batch.append(rnn_states_critic[ind+1])
-        
-        L, N = data_chunk_length, batch_size*num_agents
-
-        # These are all from_numpys of size (L, N, num_agent, Dim) 
-        if self._mixed_obs:
-            for key in obs_batch.keys():  
-                obs_batch[key] = np.stack(obs_batch[key], axis=1)
-                next_obs_batch[key] = np.stack(next_obs_batch[key], axis=1)
-        else:        
-            obs_batch = np.stack(obs_batch, axis=1)
-            next_obs_batch = np.stack(next_obs_batch, axis=1)
-        actions_batch = np.stack(actions_batch, axis=1)
-
-        reward_batch = np.stack(reward_batch, axis=1)
-
-        masks_batch = np.stack(masks_batch, axis=1)
-        next_masks_batch = np.stack(next_masks_batch, axis=1)
-
-        # States is just a (N, num_agent, -1) from_numpy
-        rnn_states_batch = np.stack(rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
-        next_rnn_states_batch = np.stack(next_rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
-
-        rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
-        next_rnn_states_critic_batch = np.stack(next_rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
-
-        
-        # Flatten the (L, N, num_agent, ...) from_numpys to (L * N, ...)
-        if self._mixed_obs:
-            for key in obs_batch.keys(): 
-                if len(obs_batch[key].shape) == 6:
-                    obs_batch[key] = obs_batch[key].reshape(L*N, *obs_batch[key].shape[3:])
-                    next_obs_batch[key] = next_obs_batch[key].reshape(L*N, *next_obs_batch[key].shape[3:])
-                elif len(obs_batch[key].shape) == 5:
-                    obs_batch[key] = obs_batch[key].reshape(L*N, *obs_batch[key].shape[3:])
-                    next_obs_batch[key] = next_obs_batch[key].reshape(L*N, *next_obs_batch[key].shape[3:])
+            masks_batch = []
+            next_masks_batch = []
+            
+            for index in sampler:
+                ind = index * data_chunk_length
+                # size [T+1 N M Dim]-->[T N M Dim]-->[N,M,T,Dim]-->[N*M*T,Dim]-->[L,Dim]
+                if self._mixed_obs:
+                    for key in obs.keys():
+                        obs_batch[key].append(obs[key][ind:ind+data_chunk_length])
+                        next_obs_batch[key].append(obs[key][ind+1:ind+data_chunk_length+1])
                 else:
-                    obs_batch[key] = _flatten_till_agent(L,N, obs_batch[key])
-                    next_obs_batch[key] = _flatten_till_agent(L,N, next_obs_batch[key])
-        else:
-            obs_batch = _flatten_till_agent(L, N, obs_batch)
-            next_obs_batch = _flatten_till_agent(L, N, next_obs_batch)
-        actions_batch = _flatten_till_agent(L, N, actions_batch)
-        reward_batch = _flatten_till_agent(L, N, reward_batch)
+                    obs_batch.append(obs[ind:ind+data_chunk_length])
+                    next_obs_batch.append(obs[ind+1:ind+data_chunk_length+1])
 
-        masks_batch = _flatten_till_agent(L, N, masks_batch)
-        next_masks_batch = _flatten_till_agent(L, N, next_masks_batch)
+                actions_batch.append(actions[ind:ind+data_chunk_length])
 
-        return obs_batch, rnn_states_batch, rnn_states_critic_batch, masks_batch, \
-              next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch,next_masks_batch, actions_batch, reward_batch
+                reward_batch.append(rewards[ind:ind+data_chunk_length])
+
+                masks_batch.append(masks[ind:ind+data_chunk_length])
+                next_masks_batch.append(masks[ind+1:ind+data_chunk_length+1])
+                # size [T+1 N M Dim]-->[T N M Dim]-->[N M T Dim]-->[N*M*T,Dim]-->[1,Dim]
+                rnn_states_batch.append(rnn_states[ind])
+                next_rnn_states_batch.append(rnn_states[ind+1])
+
+                rnn_states_critic_batch.append(rnn_states_critic[ind])
+                next_rnn_states_critic_batch.append(rnn_states_critic[ind+1])
+            
+            L, N = data_chunk_length, batch_size*num_agents
+
+            # These are all from_numpys of size (L, N, num_agent, Dim) 
+            if self._mixed_obs:
+                for key in obs_batch.keys():  
+                    obs_batch[key] = np.stack(obs_batch[key], axis=1)
+                    next_obs_batch[key] = np.stack(next_obs_batch[key], axis=1)
+            else:        
+                obs_batch = np.stack(obs_batch, axis=1)
+                next_obs_batch = np.stack(next_obs_batch, axis=1)
+            actions_batch = np.stack(actions_batch, axis=1)
+
+            reward_batch = np.stack(reward_batch, axis=1)
+
+            masks_batch = np.stack(masks_batch, axis=1)
+            next_masks_batch = np.stack(next_masks_batch, axis=1)
+
+            # States is just a (N, num_agent, -1) from_numpy
+            rnn_states_batch = np.stack(rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
+            next_rnn_states_batch = np.stack(next_rnn_states_batch).reshape(N, *self.rnn_states.shape[3:])
+
+            rnn_states_critic_batch = np.stack(rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
+            next_rnn_states_critic_batch = np.stack(next_rnn_states_critic_batch).reshape(N, *self.rnn_states_critic.shape[3:])
+
+            
+            # Flatten the (L, N, num_agent, ...) from_numpys to (L * N, ...)
+            if self._mixed_obs:
+                for key in obs_batch.keys(): 
+                    if len(obs_batch[key].shape) == 6:
+                        obs_batch[key] = obs_batch[key].reshape(L*N, *obs_batch[key].shape[3:])
+                        next_obs_batch[key] = next_obs_batch[key].reshape(L*N, *next_obs_batch[key].shape[3:])
+                    elif len(obs_batch[key].shape) == 5:
+                        obs_batch[key] = obs_batch[key].reshape(L*N, *obs_batch[key].shape[3:])
+                        next_obs_batch[key] = next_obs_batch[key].reshape(L*N, *next_obs_batch[key].shape[3:])
+                    else:
+                        obs_batch[key] = _flatten_till_agent(L,N, obs_batch[key])
+                        next_obs_batch[key] = _flatten_till_agent(L,N, next_obs_batch[key])
+            else:
+                obs_batch = _flatten_till_agent(L, N, obs_batch)
+                next_obs_batch = _flatten_till_agent(L, N, next_obs_batch)
+            actions_batch = _flatten_till_agent(L, N, actions_batch)
+            reward_batch = _flatten_till_agent(L, N, reward_batch)
+
+            masks_batch = _flatten_till_agent(L, N, masks_batch)
+            next_masks_batch = _flatten_till_agent(L, N, next_masks_batch)
+
+            yield obs_batch, rnn_states_batch, rnn_states_critic_batch, masks_batch, \
+                next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch,next_masks_batch, actions_batch, reward_batch
   
     def get_average_rewards(self):
         if self.filled_i == self.max_buffer_size-1:

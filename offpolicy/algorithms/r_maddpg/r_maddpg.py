@@ -59,11 +59,9 @@ class R_MADDPG():
         train_info['entropy'] = 0
         train_info['actor_grad_norm'] = 0
         train_info['critic_grad_norm'] = 0
-
-        for _ in range(self.num_update_each):
+        data_generator = buffer.recurrent_generator(self.num_update_each, self.batch_size, self.data_chunk_length)
+        for sample in data_generator:
             if self._use_recurrent_policy:
-                sample = buffer.recurrent_generator(self.batch_size, self.data_chunk_length)
-
                 q_loss, policy_loss, entropy, critic_grad_norm, actor_grad_norm = self.maddpg_update(sample)
 
                 train_info['value_loss'] += q_loss.item()
