@@ -56,6 +56,7 @@ class ExpWorld(World):
         trav_map_size = int(
             trav_map_original_size * self.trav_map_default_resolution / self.trav_map_resolution
         )
+        self.origin_trav_map  = np.copy(trav_map)
         # We resize the traversability map to the new size computed before
         trav_map = cv2.resize(trav_map, (trav_map_size, trav_map_size))
         # We make the pixels of the image to be either 0 or 1
@@ -869,17 +870,19 @@ def main():
             for j in range(4):
                 # random.shuffle(one_action)
                 action.append(copy.copy(one_action))
-            obs_n, reward_n, done_n, info_n = env.step(action, mode='voronoi_based')
+            obs_n, reward_n, done_n, info_n = env.step(action, mode='expert_both')
             # print("reward_n:",reward_n)
             # print("done:",done_n)
-            # img = env.render()
+            img = env.render_big_map()
 
             # agent_0_obs = (1-obs_n[-1]["two-dim"].transpose(1,2,0))*255
             # img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.,args.trav_map_size))[1]
             #frames.append(img)
             # for rw, ag in zip(reward_n,env.agents):
             #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
-            # cv2.imwrite("/workspace/tmp/image/{}.png".format(str(i)), img)
+            cv2.imwrite("/home/zh/Documents/workspace/scene/tmp/{}.png".format(str(i)), img)
+            # image = Image.fromarray(cv2.cvtColor(img,cv2.COLOR_BGR2RGB))
+            # image.save("/home/zh/Documents/workspace/scene/tmp/{}.png".format(str(i)),dpi=(1600.0,1600.0))
             # cv2.imwrite("/workspace/tmp/image/agent_0_{}.png".format(str(i)), agent_0_obs)
             # imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.07)
             # print(i,"orien",env.agents[-1].orientation)

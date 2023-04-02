@@ -11,7 +11,8 @@ import math
 import cv2
 # update bounds to center around agent
 cam_range = 2
-
+from numpy import ma
+import skfmm
 # environment for all agents in the multiagent world
 # currently code assumes that no agents will be created/destroyed at runtime!
 class MultiAgentEnv(gym.Env):
@@ -497,7 +498,8 @@ class CatchingEnv(MultiAgentEnv):
             agent_grid = np.zeros((m, n))
             agent_grid[agent.grid_index[0], agent.grid_index[1]] = 1
             agent_grid = 1 - skimage.morphology.binary_dilation(agent_grid, selem) != True
-            colored = self.fill_color(colored, agent_grid, current_palette)
+            # colored = self.fill_color(colored, agent_grid, current_palette)
+            colored = cv2.circle(colored,(agent.grid_index[1],agent.grid_index[0]),4,current_palette,-1)
 
             # render orientation
             agent_orien = np.zeros((m, n))
@@ -525,6 +527,68 @@ class CatchingEnv(MultiAgentEnv):
         
         return colored
 
+    def render_big_map(self):
+        reso = int(self.world.trav_map_resolution/self.world.trav_map_default_resolution)
+        num_agents = len(self.world.agents)
+        FMM_result_map = np.zeros((num_agents,*self.world.origin_trav_map.shape))
+        # selem = skimage.morphology.disk(int(agent.size/self.trav_map_resolution))
+        # obstacle_grid = skimage.morphology.binary_dilation(self.trav_map, selem)
+        trav_map = np.copy(self.world.origin_trav_map)
+        trav_map[trav_map < 255] = 0
+        trav_map[trav_map > 0] = 1
+        for i, ag in enumerate(self.world.agents): 
+            # caculate the travel distance from all free cells to agent       
+            traversible_ma = ma.masked_values(trav_map, 0)
+            traversible_ma[ag.grid_index[0]*reso,ag.grid_index[1]*reso] = 0
+            distance_map = skfmm.distance(traversible_ma,dx=1/ag.max_speed)
+            distance_map = ma.filled(distance_map,float("inf"))
+            FMM_result_map[i] = np.copy(distance_map)
+        
+        # the voronoi
+        Voronoi_map = np.argmin(FMM_result_map, axis=0) - (1-trav_map)
+
+        grid = 1-trav_map
+        m, n = grid.shape
+        colored = np.zeros((m,n,3))
+        pal = sns.color_palette('Paired', 16)
+
+        
+
+        # for "voronoi_based":
+        voronoi_palette = [(0.97, 0.77, 0.7),(0.72, 0.9, 0.99)]
+
+        voronoi_prey = Voronoi_map == (len(self.agents)-1)
+        voronoi_ad = (Voronoi_map >= 0)*(1-voronoi_prey)
+        colored = self.fill_color(colored, voronoi_ad, voronoi_palette[0])
+        colored = self.fill_color(colored, voronoi_prey, voronoi_palette[1])
+
+        current_palette = [(0.05, 0.05, 0.05)]
+        colored = self.fill_color(colored, grid, current_palette[0])
+
+        for agent in self.agents:
+            current_palette = pal[9] if agent.adversary == True else pal[11]
+
+            colored = cv2.circle(colored,(agent.grid_index[1]*reso,agent.grid_index[0]*reso),16,current_palette,-1)
+
+            # render orientation
+            a_start = (agent.grid_index[1]*reso, agent.grid_index[0]*reso)
+            theta = agent.orientation
+            orien_loc = agent.state.p_pos + 0.8*agent.size*np.array([math.cos(theta), math.sin(theta)])
+            orien_grid = self.world.world_to_grid(orien_loc)
+            a_end = (orien_grid[1]*reso, orien_grid[0]*reso)
+            
+            colored = cv2.line(colored,a_start,a_end,(255,0,0),3)
+
+        colored = 1 - colored
+        colored *= 255
+        colored = colored.astype(np.uint8)
+        
+        for ag, rw in zip(self.agents, self.render_rw):
+                # cv2.putText(colored, str(round(rw[0], 2)), (ag.grid_index[1]*reso, ag.grid_index[0]*reso), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
+                if ag.if_dead:
+                    cv2.putText(colored, "Catched!", (50, 50), 1, 15, (255, 0, 0), 4, cv2.LINE_AA)
+        
+        return colored
 
     def _set_action(self, action, agent, action_space, time=None):
         # now action is (linear velocity, angular velocity)
