@@ -482,7 +482,7 @@ class CatchingEnv(MultiAgentEnv):
         
 
         # for "voronoi_based":
-        voronoi_palette = [(0.97, 0.77, 0.7),(0.72, 0.9, 0.99)]
+        voronoi_palette = [(0.72, 0.9, 0.99),(0.97, 0.77, 0.7)]
         Voronoi_map = self.world.get_safe_reachable_area()
         voronoi_prey = Voronoi_map == (len(self.agents)-1)
         voronoi_ad = (Voronoi_map >= 0)*(1-voronoi_prey)
@@ -555,7 +555,7 @@ class CatchingEnv(MultiAgentEnv):
         
 
         # for "voronoi_based":
-        voronoi_palette = [(0.97, 0.77, 0.7),(0.72, 0.9, 0.99)]
+        voronoi_palette = [(0.72, 0.9, 0.99),(0.97, 0.77, 0.7)]
 
         voronoi_prey = Voronoi_map == (len(self.agents)-1)
         voronoi_ad = (Voronoi_map >= 0)*(1-voronoi_prey)

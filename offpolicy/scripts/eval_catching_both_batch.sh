@@ -4,14 +4,14 @@ scenario="simple_catching_expert_both"  # simple_speaker_listener # simple_refer
 num_landmarks=0
 num_agents=4
 algo="maac"
-exp="test_for_EnvV4_ExpPrey_NoPreyVolo_full_1V1.2_SameAsMAPPO_withstopRW"
+exp="test_for_EnvV4_NoExp_NoPreyVolo_full_1V1_SameAsMAPPO_withstopRW"
 seed=1
-maps_path_ls=('/home/zh/Documents/workspace/scene/val/easy' '/home/zh/Documents/workspace/scene/val/hard' '/home/zh/Documents/workspace/scene/val/hard')
-model_dir="/home/zh/Documents/workspace/on-policy/offpolicy/scripts/results/MPE/simple_catching_expert_both/maac/EnvV4_ExpPrey_NoPreyVolo_1V1.2_SameAsMAPPO_withCOllideRW/wandb/run-20230326_195032-2vqwy03q/files"
-load_model_ep=9300
+maps_path_ls=('/home/zh/Documents/workspace/scene/val/easy' '/home/zh/Documents/workspace/scene/val/middle' '/home/zh/Documents/workspace/scene/val/hard')
+model_dir="/home/zh/Documents/workspace/on-policy/offpolicy/scripts/results/MPE/simple_catching_expert_both/maac/EnvV4_NoExp_NoPreyVolo_1V1_SameAsMAPPO_withStopRW/maac_noexpprey_1v1_1v3/run-20230326_142242-3nu4co2q/files"
+load_model_ep=12400
 num_test_episode=500
-good_agent_speed=1.2
-step_mode="expert_prey" # assert mode == expert_adversary or  expert_both or  expert_prey or  none
+good_agent_speed=1.0
+step_mode="none" # assert mode == expert_adversary or  expert_both or  expert_prey or  none
 
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 

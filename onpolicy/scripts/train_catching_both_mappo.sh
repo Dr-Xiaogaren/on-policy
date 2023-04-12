@@ -5,10 +5,10 @@ num_landmarks=0
 num_agents=5
 num_adversaries=4
 algo="rmappo"
-exp="EnvV4_ExpPrey_NoPreyVolo_full_1V1_1v4"
+exp="EnvV4_ExpPrey_NoPreyVolo_full_1V1.2_1v4"
 seed_max=1
 step_mode="expert_prey"
-good_agent_speed=1.0
+good_agent_speed=1.2
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 for seed in `seq ${seed_max}`;
 do

@@ -549,6 +549,7 @@ class Scenario(BaseScenario):
             agent.orientation = 0  # pi , The angle with the x-axis, counterclockwise is positive
             agent.rotation_stepsize = math.pi/6
             agent.last_pos = None # pos in last time step
+            agent.move_dis = 0 # move distance
             agent.if_dead = False
             agent.collide_punish = False
 
@@ -627,6 +628,7 @@ class Scenario(BaseScenario):
             agent.grid_index = self.world_to_grid(agent.state.p_pos, world)
             # last pose
             agent.last_pos = np.copy(agent.state.p_pos)
+            agent.move_dis = 0
             agent.orientation = np.random.random()*math.pi*2
             agent.if_collide = False
             agent.if_dead = False
@@ -816,6 +818,7 @@ class Scenario(BaseScenario):
     # change variables after reward function
     def post_step(self, world):
         for agent in world.agents:
+            agent.move_dis = np.linalg.norm(agent.state.p_pos-agent.last_pos)
             agent.last_pos = np.copy(agent.state.p_pos)
             agent.collide_punish = False
     
@@ -853,6 +856,8 @@ def main():
     args.env_name = "MPE"
     args.scenario_name = "simple_catching_expert_both"
     args.num_agents = 4
+    args.good_agent_speed = 1.2
+    args.maps_path = '/home/zh/Documents/workspace/scene/val/middle'
     scenario = load(args.scenario_name + ".py").Scenario()
     # create world
     world = scenario.make_world(args)

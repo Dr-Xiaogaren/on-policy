@@ -180,14 +180,17 @@ def main(args):
         print('load model of episode:',str(ld_ep))
         success_step_set = []
         success_rate = 0
+        path_length_set = []
         # start 
+        AoZ_all = np.zeros((num_test_episode,episode_length))
+        area_all = np.zeros(num_test_episode)
         for ep in tqdm(range(num_test_episode)):
             # two group reward
             success_step = 0
             eval_episode_rewards_good = []
             eval_episode_rewards_bad = []
             all_frames = []
-        
+            path_length = [0]*runner.num_agents
             # reset
             eval_obs = single_env.reset()
             if all_args.save_gifs:
@@ -262,6 +265,16 @@ def main(args):
                         eval_episode_rewards_bad.append(group_ev_rewards)
                     else:
                         eval_episode_rewards_good.append(group_ev_rewards)
+                
+                for ag_i in range(runner.num_agents):
+                    dis = single_env.agents[ag_i].move_dis
+                    path_length[ag_i]+=dis
+                
+                Voronoi_map = single_env.world.get_safe_reachable_area()
+                voronoi_prey = Voronoi_map == (runner.num_agents-1)
+                AoZ_all[ep][step] = np.sum(voronoi_prey)
+                area_all[ep] = np.sum(single_env.world.trav_map)
+
 
                 if all_args.save_gifs:
                     image = single_env.render()
@@ -275,6 +288,7 @@ def main(args):
                 if sum(eval_dones) == num_agents:
                     success_step = step
                     success_step_set.append(success_step)
+                    path_length_set.append(path_length)
                     if success_step+1 <  episode_length:
                         success_rate += 1
                     break
@@ -303,6 +317,12 @@ def main(args):
         print("average episode length:", eval_average_episode_length)
         print("STD of average episode length:", len_std)
         print("average success rate:", success_rate)
+
+        path_length_array = np.array(path_length_set)
+        predator_len = np.mean(path_length_array[:,0:runner.num_bads])
+        prey_len = np.mean(path_length_array[:,runner.num_bads:])
+        print("average path length of Predator:", predator_len)
+        print("average path length of Prey:", prey_len)
         ep_len_ls.append([eval_average_episode_length,len_std])
         sr_ls.append(success_rate)
 
@@ -311,9 +331,11 @@ def main(args):
     for n_ep, length, s_r in zip(file_list,ep_len_ls,sr_ls):
         fo.write('{},{},{},{}\n'.format(n_ep, length[0], length[1], s_r))
     fo.close()
+
+    np.savetxt(runner.save_dir+'/'+all_args.step_mode+'_AoZ.txt',AoZ_all)
+    np.savetxt(runner.save_dir+'/'+all_args.step_mode+'_area.txt',area_all)
     # post process
     envs.close()
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
