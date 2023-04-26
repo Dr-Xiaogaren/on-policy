@@ -24,10 +24,9 @@ class R_CNNCritic(nn.Module):
         self.hidden_size = args.hidden_size
 
         self._use_orthogonal = args.use_orthogonal
-        self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy
         self._recurrent_N = args.recurrent_N
-        self._use_popart = args.use_popart
+    
         self.tpdv = dict(dtype=torch.float32, device=device)
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][self._use_orthogonal]
 
@@ -56,7 +55,7 @@ class R_CNNCritic(nn.Module):
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
 
 
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+        if self._use_recurrent_policy:
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
 
         def init_(m):
@@ -107,7 +106,7 @@ class R_CNNCritic(nn.Module):
         # concat and merge
         critic_features = self.MergeLayer(torch.cat([state_feature, state_action_feature], dim=-1))
 
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+        if self._use_recurrent_policy:
             critic_features, rnn_states = self.rnn(critic_features, rnn_states, masks)
         values = self.v_out(critic_features)
        
@@ -130,7 +129,6 @@ class R_CNNActor(nn.Module):
         self._gain = args.gain
         self._use_orthogonal = args.use_orthogonal
         self._use_policy_active_masks = args.use_policy_active_masks
-        self._use_naive_recurrent_policy = args.use_naive_recurrent_policy
         self._use_recurrent_policy = args.use_recurrent_policy
         self._recurrent_N = args.recurrent_N
         self.tpdv = dict(dtype=torch.float32, device=device)
@@ -148,7 +146,7 @@ class R_CNNActor(nn.Module):
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
 
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+        if self._use_recurrent_policy:
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
 
         self.act = ACTLayer(action_space, self.hidden_size, self._use_orthogonal, self._gain)
@@ -183,7 +181,7 @@ class R_CNNActor(nn.Module):
         # concat and merge
         actor_features = self.MergeLayer(torch.cat([actor_features_from_fc, actor_features_from_cnn],dim=-1))
         # rnn layer
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+        if self._use_recurrent_policy:
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
         # output layer
         actions, action_probs = self.act(actor_features, available_actions, deterministic)

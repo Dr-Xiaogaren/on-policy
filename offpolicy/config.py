@@ -52,7 +52,6 @@ def get_config():
                         help="Number of layers for actor/critic networks")
     parser.add_argument("--use_ReLU", action='store_false',
                         default=True, help="Whether to use ReLU")
-    parser.add_argument("--use_popart", action='store_true', default=False, help="by default False, use PopArt to normalize rewards.")
     parser.add_argument("--use_feature_normalization", action='store_false',
                         default=True, help="Whether to apply layernorm to the inputs")
     parser.add_argument("--use_orthogonal", action='store_false', default=True,
@@ -61,8 +60,6 @@ def get_config():
                         help="The gain # of last action layer")
 
     # recurrent parameters
-    parser.add_argument("--use_naive_recurrent_policy", action='store_true',
-                        default=False, help='Whether to use a naive recurrent policy')
     parser.add_argument("--use_recurrent_policy", action='store_false',
                         default=True, help='use a recurrent policy')
     parser.add_argument("--recurrent_N", type=int, default=1, help="The number of recurrent layers.")

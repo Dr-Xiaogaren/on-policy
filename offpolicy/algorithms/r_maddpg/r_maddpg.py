@@ -27,8 +27,7 @@ class R_MADDPG():
         self.gamma = args.gamma
 
         self._use_recurrent_policy = args.use_recurrent_policy
-        self._use_naive_recurrent = args.use_naive_recurrent_policy
-        self._use_popart = args.use_popart
+
         self._use_policy_active_masks = args.use_policy_active_masks
 
         self.use_soft_update = args.use_soft_update
