@@ -6,7 +6,6 @@ import numpy as np
 from itertools import chain
 import torch
 
-from onpolicy.utils.util import update_linear_schedule
 from onpolicy.runner.separated.two_group_base import Runner
 import imageio
 

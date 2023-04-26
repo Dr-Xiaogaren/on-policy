@@ -8,9 +8,8 @@ from itertools import chain
 import torch
 from tensorboardX import SummaryWriter
 import os
-from onpolicy.utils.separated_buffer import SeparatedReplayBuffer
 from onpolicy.utils.shared_buffer import SharedReplayBuffer
-from onpolicy.utils.util import update_linear_schedule
+
 
 def _t2n(x):
     return x.detach().cpu().numpy()
@@ -78,8 +77,8 @@ class Runner(object):
             from onpolicy.algorithms.r_mappo.r_mappo import R_MAPPO as TrainAlgo
             from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy as Policy
         elif self.algorithm_name=="rippo":
-            from onpolicy.algorithms.r_ippo.r_mappo import R_IPPO as TrainAlgo
-            from onpolicy.algorithms.r_ippo.algorithm.rMAPPOPolicy import R_IPPOPolicy as Policy
+            from onpolicy.algorithms.r_ippo.r_ippo import R_IPPO as TrainAlgo
+            from onpolicy.algorithms.r_ippo.algorithm.rIPPOPolicy import R_IPPOPolicy as Policy
 
 
         self.policy = []

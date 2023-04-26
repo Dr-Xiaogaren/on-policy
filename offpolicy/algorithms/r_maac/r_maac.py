@@ -9,7 +9,7 @@ loss = torch.nn.MSELoss()
 
 class R_MAAC():
     """
-    Trainer class for MADDPG to update policies.
+    Trainer class for MAAC to update policies.
     :param args: (argparse.Namespace) arguments containing relevant model, policy, and env information.
     :param policy: (R_R_MAAC_Policy) policy to update.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
@@ -36,10 +36,15 @@ class R_MAAC():
         self.use_soft_update = args.use_soft_update
              
 
-    def maddpg_update(self, sample):
+    def maac_update(self, sample):
+        """
+        Perform training update for MAAC.
+        :param sample: (tuple) contains data to update policy.
+
+        :return: (tuple) contains loss and gradient norms for critic and actor.
+        """
         q_loss, critic_grad_norm = self.update_critic(sample)
         policy_loss, action_probs, actor_grad_norm = self.update_policy(sample)
-        # q_loss, critic_grad_norm, policy_loss, action_probs, actor_grad_norm = self.update_together(sample)
         
         entropy = torch.sum(-torch.log(action_probs)*action_probs, dim=-1).mean()
 
@@ -49,7 +54,6 @@ class R_MAAC():
         """
         Perform a training update using minibatch GD.
         :param buffer: (SharedReplayBuffer) buffer containing training data.
-        :param update_actor: (bool) whether to update actor network.
 
         :return train_info: (dict) contains information regarding training update (e.g. loss, grad norms, etc).
         """
@@ -64,7 +68,7 @@ class R_MAAC():
         data_generator = buffer.recurrent_generator(self.num_update_each, self.batch_size, self.data_chunk_length)
         for sample in data_generator:
             if self._use_recurrent_policy:
-                q_loss, policy_loss, entropy, critic_grad_norm, actor_grad_norm = self.maddpg_update(sample)
+                q_loss, policy_loss, entropy, critic_grad_norm, actor_grad_norm = self.maac_update(sample)
                 train_info['value_loss'] += q_loss.item()
                 train_info['policy_loss'] += policy_loss.item()
                 train_info['entropy'] += entropy.item()
@@ -96,6 +100,12 @@ class R_MAAC():
         self.policy.target_critic.eval()
 
     def update_critic(self, sample):
+        """
+        Perform training update for critic.
+        :param sample: (tuple) contains data to update critic.
+
+        :return: (tuple) contains loss and gradient norms for critic.
+        """
 
         # shape:(n_robots,data_chunk_length,batch_size,...)
         # share_obs_batch, obs_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, \
@@ -137,6 +147,12 @@ class R_MAAC():
         return q_loss, critic_grad_norm
 
     def update_policy(self, sample):
+        """
+        Perform training update for policy.
+        :param sample: (tuple) contains data to update policy.
+
+        :return: (tuple) contains loss and gradient norms for actor.
+        """
         obs_batch, rnn_states_batch, rnn_states_critic_batch, masks_batch, \
         next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch, next_mask_batch, \
         actions_batch, return_batch  = sample
@@ -163,53 +179,6 @@ class R_MAAC():
         self.policy.actor_optimizer.step()
 
         return policy_loss, action_probs, actor_grad_norm
-
-
-    def update_together(self, sample):
-        obs_batch, rnn_states_batch, rnn_states_critic_batch, masks_batch, \
-        next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch, next_mask_batch, \
-        actions_batch, return_batch  = sample
-
-        return_batch = check(return_batch).to(**self.tpdv)
-        masks_batch = check(masks_batch).to(**self.tpdv)
-        
-        # Sacrifice a value for convenience
-        for key in obs_batch.keys():
-            obs_batch[key] = check(obs_batch[key]).to(**self.tpdv) 
-            next_obs_batch[key] = check(next_obs_batch[key]).to(**self.tpdv) 
-
-
-        # calculate next Q value
-        next_Q,_ ,_ ,_ ,_ = self.policy.get_actions(next_obs_batch, next_rnn_states_batch, next_rnn_states_critic_batch, 
-                                            next_mask_batch, use_target_actor=True, use_target_critic=True)
-        # calculate current Q value
-        critic_rets= self.policy.get_values(obs_batch, actions_batch, rnn_states_critic_batch, masks_batch, use_target=False)
-        # calculate target Q value
-        target_q = return_batch.view(-1,1) + self.gamma*next_Q.view(-1,1)*next_mask_batch.view(-1,1)
-        
-        q_loss =  torch.nn.MSELoss()(critic_rets,target_q.detach())
-
-        self.policy.critic_optimizer.zero_grad()
-        self.policy.actor_optimizer.zero_grad()
-
-
-        curr_q, all_q, action_probs, log_action_prob= self.policy.evaluate_actions(obs_batch, rnn_states_batch, rnn_states_critic_batch, 
-                                                                    masks_batch, use_target_actor=False, use_target_critic=False)
-        
-        v = (all_q*action_probs).sum(dim=1,keepdim=True)
-        pol_target = curr_q - v
-        policy_loss = (log_action_prob*(-pol_target.detach())).mean()
-        policy_loss += (action_probs**2).mean()*1e-3
-
-        q_loss.backward()
-        policy_loss.backward()
-
-        actor_grad_norm = get_gard_norm(self.policy.actor.parameters())
-        critic_grad_norm = get_gard_norm(self.policy.critic.parameters())
-        self.policy.actor_optimizer.step()
-        self.policy.critic_optimizer.step()
-
-        return q_loss, critic_grad_norm, policy_loss, action_probs, actor_grad_norm
 
 
 

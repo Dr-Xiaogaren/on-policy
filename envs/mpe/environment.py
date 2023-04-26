@@ -1,6 +1,5 @@
 import gym
 from gym import spaces
-from gym.envs.registration import EnvSpec
 import numpy as np
 from wandb import controller
 from .multi_discrete import MultiDiscrete
@@ -66,7 +65,7 @@ class MultiAgentEnv(gym.Env):
             
             # physical action space
             if self.discrete_action_space:
-                u_action_space = spaces.Discrete(world.dim_p * 2 + 1)
+                u_action_space = spaces.Discrete(5)
             else:
                 u_action_space = spaces.Box(
                     low=-agent.u_range, high=+agent.u_range, shape=(world.dim_p,), dtype=np.float32)  # [-1,1]

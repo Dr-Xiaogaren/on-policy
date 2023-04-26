@@ -7,10 +7,10 @@ class R_MADDPGPolicy:
     """
     MADDPG Policy  class. Wraps actor and critic networks to compute actions and value function predictions.
 
-    :param args: (argparse.Namespace) arguments containing relevant model and policy information.
-    :param obs_space: (gym.Space) observation space.
-    :param cent_obs_space: (gym.Space) value function input space (centralized input for MAPPO, decentralized for IPPO).
-    :param action_space: (gym.Space) action space.
+    :param args: (argparse.Namespace) arguments containing relevant model, policy, and env information.
+    :param obs_space: (gym.spaces) observation space of the environment.
+    :cent_obs_space: (gym.spaces) central observation space of the environment.
+    :param act_space: (gym.spaces) action space of the environment.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
 
@@ -69,11 +69,12 @@ class R_MADDPGPolicy:
         :param available_actions: (np.ndarray) denotes which actions are available to agent
                                   (if None, all actions available)
         :param deterministic: (bool) whether the action should be mode of distribution or should be sampled.
-        :param use_target: (bool) whether to use the target actor or live actor.
+        :param use_target_actor: (bool) whether to use the target actor network.
+        :param use_target_critic: (bool) whether to use the target critic network.
 
         :return values: (torch.Tensor) value function predictions.
         :return actions: (torch.Tensor) actions to take.
-        :return action_log_probs: (torch.Tensor) log probabilities of chosen actions.
+        :return action_probs: (torch.Tensor) probabilities of chosen actions.
         :return rnn_states_actor: (torch.Tensor) updated actor network RNN states.
         :return rnn_states_critic: (torch.Tensor) updated critic network RNN states.
         """
@@ -100,9 +101,11 @@ class R_MADDPGPolicy:
     def get_values(self, obs, joint_action,rnn_states_critic, masks, use_target=True):
         """
         Get value function predictions.
-        :param cent_obs (np.ndarray): centralized input to the critic.
+        :param obs (np.ndarray): centralized input to the critic.
+        :param joint_action (np.ndarray): joint action input to the critic.
         :param rnn_states_critic: (np.ndarray) if critic is RNN, RNN states for critic.
         :param masks: (np.ndarray) denotes points at which RNN states should be reset.
+        :param use_target: (bool) whether to use the target critic network.
 
         :return values: (torch.Tensor) value function predictions.
         """
@@ -124,11 +127,12 @@ class R_MADDPGPolicy:
         :param available_actions: (np.ndarray) denotes which actions are available to agent
                                   (if None, all actions available)
         :param deterministic: (bool) whether the action should be mode of distribution or should be sampled.
-        :param use_target: (bool) whether to use the target actor or live actor.
+        :param use_target_actor: (bool) whether to use the target actor network.
+        :param use_target_critic: (bool) whether to use the target critic network.
 
         :return values: (torch.Tensor) value function predictions.
         :return actions: (torch.Tensor) actions to take.
-        :return action_log_probs: (torch.Tensor) log probabilities of chosen actions.
+        :return action_probs: (torch.Tensor) probabilities of chosen actions.
         :return rnn_states_actor: (torch.Tensor) updated actor network RNN states.
         :return rnn_states_critic: (torch.Tensor) updated critic network RNN states.
         """
@@ -161,6 +165,9 @@ class R_MADDPGPolicy:
         :param available_actions: (np.ndarray) denotes which actions are available to agent
                                   (if None, all actions available)
         :param deterministic: (bool) whether the action should be mode of distribution or should be sampled.
+
+        :return actions: (torch.Tensor) actions to take.
+        :return rnn_states_actor: (torch.Tensor) updated actor network RNN states.
         """
         actions, _, rnn_states_actor = self.actor(obs, rnn_states_actor, masks, available_actions, deterministic)
         return actions, rnn_states_actor

@@ -6,12 +6,7 @@ from onpolicy.utils.valuenorm import ValueNorm
 from onpolicy.algorithms.utils.util import check
 
 class R_MAPPO_ForBC():
-    """
-    Trainer class for MAPPO to update policies.
-    :param args: (argparse.Namespace) arguments containing relevant model, policy, and env information.
-    :param policy: (R_MAPPO_Policy) policy to update.
-    :param device: (torch.device) specifies the device to run on (cpu/gpu).
-    """
+
     def __init__(self,
                  args,
                  policy,
@@ -32,17 +27,7 @@ class R_MAPPO_ForBC():
 
 
     def policy_update(self, sample):
-        """
-        Update actor networks.
-        :param sample: (Tuple) contains data batch with which to update networks.
 
-        :return value_loss: (torch.Tensor) value function loss.
-        :return critic_grad_norm: (torch.Tensor) gradient norm from critic up9date.
-        ;return policy_loss: (torch.Tensor) actor(policy) loss value.
-        :return dist_entropy: (torch.Tensor) action entropies.
-        :return actor_grad_norm: (torch.Tensor) gradient norm from actor update.
-        :return imp_weights: (torch.Tensor) importance sampling weights.
-        """
         obs_batch, actions_batch, rnn_states_actor, masks = sample
         actions_batch = check(actions_batch).to(**self.tpdv)
 
@@ -68,13 +53,7 @@ class R_MAPPO_ForBC():
         return  policy_loss, actor_grad_norm
 
     def train(self, dataset):
-        """
-        Perform a training update using minibatch GD.
-        :param buffer: (SharedReplayBuffer) buffer containing training data.
-        :param update_actor: (bool) whether to update actor network.
 
-        :return train_info: (dict) contains information regarding training update (e.g. loss, grad norms, etc).
-        """
         dataset.initial_dataloader()
         train_info = {}
         train_info['policy_loss'] = 0

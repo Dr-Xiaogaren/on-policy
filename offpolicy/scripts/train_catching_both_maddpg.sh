@@ -7,7 +7,7 @@ num_adversaries=4
 algo="maddpg"
 exp="EnvV4_ExpPrey_NoPreyVolo_full_1V1.4_1v4"
 good_agent_speed=1.4
-seed=1211
+seed=1
 step_mode="expert_prey"
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 

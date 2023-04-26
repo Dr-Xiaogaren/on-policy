@@ -8,7 +8,6 @@ from itertools import chain
 import torch
 from tensorboardX import SummaryWriter
 import os
-from offpolicy.utils.separated_buffer import SeparatedReplayBuffer
 from offpolicy.utils.shared_buffer import SharedReplayBuffer
 from offpolicy.utils.util import update_linear_schedule
 

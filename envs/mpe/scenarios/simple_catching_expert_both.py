@@ -1,7 +1,3 @@
-from multiprocessing import current_process
-from re import S
-from tabnanny import check
-from tkinter import W, constants
 import numpy as np
 from envs.mpe.core import World, Agent, Landmark
 from envs.mpe.scenario import BaseScenario
@@ -11,10 +7,7 @@ import cv2
 import skimage.morphology
 import random
 import math
-import imageio
-import copy
 from numpy import ma
-from torch import arcsin
 import skfmm
 class ExpWorld(World):
     def __init__(self, args):
@@ -843,61 +836,6 @@ class Scenario(BaseScenario):
         theta = theta if theta>0 else 2*np.pi+theta
         return theta % (math.pi*2)
         
-
-
-
-def main():
-    import time
-    from envs.mpe.environment import MultiAgentEnv, CatchingEnv, CatchingEnvExpert
-    from envs.mpe.scenarios import load
-    from onpolicy.config import get_config
-    parser = get_config()
-    args = parser.parse_known_args()[0]
-    args.env_name = "MPE"
-    args.scenario_name = "simple_catching_expert_both"
-    args.num_agents = 4
-    args.good_agent_speed = 1.2
-    args.maps_path = '/home/zh/Documents/workspace/scene/val/middle'
-    scenario = load(args.scenario_name + ".py").Scenario()
-    # create world
-    world = scenario.make_world(args)
-    # create multiagent environment
-    env = CatchingEnvExpert(world, reset_callback=scenario.reset_world, reward_callback=scenario.reward, 
-                        observation_callback= scenario.observation, info_callback=  scenario.info, 
-                        done_callback=scenario.if_done, post_step_callback=scenario.post_step)
-    start = time.time()
-    for ep in range(4):
-        env.reset()
-        frames = []
-        for i in range(200):
-            one_action = [1,0,0,0,0]
-            action = []
-            for j in range(4):
-                # random.shuffle(one_action)
-                action.append(copy.copy(one_action))
-            obs_n, reward_n, done_n, info_n = env.step(action, mode='expert_both')
-            # print("reward_n:",reward_n)
-            # print("done:",done_n)
-            img = env.render_big_map()
-
-            # agent_0_obs = (1-obs_n[-1]["two-dim"].transpose(1,2,0))*255
-            # img = obs_n[0][0:args.trav_map_size*args.trav_map_size*(args.num_agents+1)].reshape(((args.num_agents+1),args.,args.trav_map_size))[1]
-            #frames.append(img)
-            # for rw, ag in zip(reward_n,env.agents):
-            #     cv2.putText(img, str(round(rw[0], 2)), (ag.grid_index[1], ag.grid_index[0]), 1, 1, (0, 0, 255), 1, cv2.LINE_AA)
-            cv2.imwrite("/home/zh/Documents/workspace/scene/tmp/{}.png".format(str(i)), img)
-            # image = Image.fromarray(cv2.cvtColor(img,cv2.COLOR_BGR2RGB))
-            # image.save("/home/zh/Documents/workspace/scene/tmp/{}.png".format(str(i)),dpi=(1600.0,1600.0))
-            # cv2.imwrite("/workspace/tmp/image/agent_0_{}.png".format(str(i)), agent_0_obs)
-            # imageio.mimsave("/workspace/tmp/test_ep{}.gif".format(str(ep)), frames, 'GIF', duration=0.07)
-            # print(i,"orien",env.agents[-1].orientation)
-    end = time.time()
-    print("fps:", 300/(end-start))
-
-    print("done")
-
-if __name__=="__main__":
-   main()
 
 
 
