@@ -12,7 +12,6 @@ We reproduced algorithms of MAGGPD, MAAC, MAPPO, and IPPO. The `./envs` subfolde
 conda create -n t2e python=3.6
 conda activate t2e
 pip install torch==1.10.0+cu111 torchvision==0.11.0+cu111 torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html
-
 ```
 2. Install the python package
 ```bash
