@@ -4,9 +4,9 @@ scenario="simple_catching_expert_both"  # simple_speaker_listener # simple_refer
 num_landmarks=0
 num_agents=4
 algo="maddpg"
-exp="EnvV4_ExpPrey_NoPreyVolo_full_1V1.2_SameAsMAPPO_withstopRW"
-good_agent_speed=1.2
-seed=99
+exp="EnvV4_ExpPrey_NoPreyVolo_full_1V1.4_4v1"
+good_agent_speed=1.4
+seed=1211
 step_mode="expert_prey"
 echo "env is ${env}, scenario is ${scenario}, algo is ${algo}, exp is ${exp}, max seed is ${seed_max}"
 
