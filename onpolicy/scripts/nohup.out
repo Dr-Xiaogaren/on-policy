@@ -1,0 +1,154 @@
+wandb: Currently logged in as: joe-14807 (use `wandb login --relogin` to force relogin)
+choose to use gpu...
+wandb: wandb version 0.15.12 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.10.5
+wandb: Syncing run rmappo_EnvV4_Atten_ExpPrey_1V1_seed1
+wandb: ⭐️ View project at https://wandb.ai/joe-14807/MPE
+wandb: 🚀 View run at https://wandb.ai/joe-14807/MPE/runs/3kqfuyvn
+wandb: Run data is saved locally in /home/zh/Documents/workspace/on-policy/onpolicy/scripts/results/MPE/simple_catching_expert_both/rmappo/EnvV4_Atten_ExpPrey_1V1/wandb/run-20231026_145410-3kqfuyvn
+wandb: Run `wandb off` to turn off syncing.
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 0/9375 episodes, total num timesteps 3200/30000000, FPS 311.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 5/9375 episodes, total num timesteps 19200/30000000, FPS 333.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 10/9375 episodes, total num timesteps 35200/30000000, FPS 333.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 15/9375 episodes, total num timesteps 51200/30000000, FPS 334.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 20/9375 episodes, total num timesteps 67200/30000000, FPS 334.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 25/9375 episodes, total num timesteps 83200/30000000, FPS 335.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 30/9375 episodes, total num timesteps 99200/30000000, FPS 335.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 35/9375 episodes, total num timesteps 115200/30000000, FPS 335.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 40/9375 episodes, total num timesteps 131200/30000000, FPS 334.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 45/9375 episodes, total num timesteps 147200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 50/9375 episodes, total num timesteps 163200/30000000, FPS 337.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 55/9375 episodes, total num timesteps 179200/30000000, FPS 337.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 60/9375 episodes, total num timesteps 195200/30000000, FPS 337.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 65/9375 episodes, total num timesteps 211200/30000000, FPS 337.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 70/9375 episodes, total num timesteps 227200/30000000, FPS 338.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 75/9375 episodes, total num timesteps 243200/30000000, FPS 338.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 80/9375 episodes, total num timesteps 259200/30000000, FPS 337.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 85/9375 episodes, total num timesteps 275200/30000000, FPS 337.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 90/9375 episodes, total num timesteps 291200/30000000, FPS 337.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 95/9375 episodes, total num timesteps 307200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 100/9375 episodes, total num timesteps 323200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 105/9375 episodes, total num timesteps 339200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 110/9375 episodes, total num timesteps 355200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 115/9375 episodes, total num timesteps 371200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 120/9375 episodes, total num timesteps 387200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 125/9375 episodes, total num timesteps 403200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 130/9375 episodes, total num timesteps 419200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 135/9375 episodes, total num timesteps 435200/30000000, FPS 336.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 140/9375 episodes, total num timesteps 451200/30000000, FPS 335.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 145/9375 episodes, total num timesteps 467200/30000000, FPS 335.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 150/9375 episodes, total num timesteps 483200/30000000, FPS 335.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 155/9375 episodes, total num timesteps 499200/30000000, FPS 335.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 160/9375 episodes, total num timesteps 515200/30000000, FPS 334.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 165/9375 episodes, total num timesteps 531200/30000000, FPS 334.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 170/9375 episodes, total num timesteps 547200/30000000, FPS 334.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 175/9375 episodes, total num timesteps 563200/30000000, FPS 334.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 180/9375 episodes, total num timesteps 579200/30000000, FPS 334.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 185/9375 episodes, total num timesteps 595200/30000000, FPS 333.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 190/9375 episodes, total num timesteps 611200/30000000, FPS 333.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 195/9375 episodes, total num timesteps 627200/30000000, FPS 333.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 200/9375 episodes, total num timesteps 643200/30000000, FPS 332.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 205/9375 episodes, total num timesteps 659200/30000000, FPS 332.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 210/9375 episodes, total num timesteps 675200/30000000, FPS 332.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 215/9375 episodes, total num timesteps 691200/30000000, FPS 331.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 220/9375 episodes, total num timesteps 707200/30000000, FPS 331.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 225/9375 episodes, total num timesteps 723200/30000000, FPS 331.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 230/9375 episodes, total num timesteps 739200/30000000, FPS 331.
+
+
+ Scenario simple_catching_expert_both Algo rmappo Exp EnvV4_Atten_ExpPrey_1V1 updates 235/9375 episodes, total num timesteps 755200/30000000, FPS 331.
+

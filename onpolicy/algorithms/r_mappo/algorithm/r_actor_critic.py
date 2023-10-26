@@ -8,7 +8,7 @@ from onpolicy.algorithms.utils.rnn import RNNLayer
 from onpolicy.algorithms.utils.act import ACTLayer
 from onpolicy.algorithms.utils.popart import PopArt
 from onpolicy.utils.util import get_shape_from_obs_space
-
+from onpolicy.algorithms.utils.attention import MultiHeadAttention, PositionalEncoding
 
 class R_Actor(nn.Module):
     """
@@ -257,7 +257,7 @@ class R_CNNActor(nn.Module):
     :param action_space: (gym.Space) action space.
     :param device: (torch.device) specifies the device to run on (cpu/gpu).
     """
-    def __init__(self, args, CNNbase, FCbase, obs_space, action_space, device=torch.device("cpu")):
+    def __init__(self, args, CNNbase, FCbase, obs_space, action_space, cent_obs_space, device=torch.device("cpu")):
         super(R_CNNActor, self).__init__()
 
         self.hidden_size = args.hidden_size
@@ -272,10 +272,13 @@ class R_CNNActor(nn.Module):
         self.tpdv = dict(dtype=torch.float32, device=device)
 
         obs_shape = get_shape_from_obs_space(obs_space)
+        cent_obs_shape = get_shape_from_obs_space(cent_obs_space)
         size_for_fc = obs_shape["one-dim"].shape[0]
         self.obs_height = obs_shape["two-dim"].shape[1]
         self.num_channel = obs_shape["two-dim"].shape[0]
         self.size_for_fc = size_for_fc
+        self.num_agents = cent_obs_shape["two-dim"].shape[0] // obs_shape["two-dim"].shape[0]
+        assert self.num_agents == cent_obs_shape["one-dim"].shape[0] // obs_shape["one-dim"].shape[0]
 
         self.CNNbase = CNNbase
         self.FCbase = FCbase
@@ -283,6 +286,10 @@ class R_CNNActor(nn.Module):
         merge_input_size = self.hidden_size + self.CNNbase.output_size
 
         self.MergeLayer = MLPBase(args, input_size=merge_input_size, layer_N=3, hidden_size=self.hidden_size)
+
+        self.AttenLayer = MultiHeadAttention(self.hidden_size, 4)
+
+        self.PositionEncoder = PositionalEncoding(self.hidden_size, self.num_agents, device=device)
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(self.hidden_size, self.hidden_size, self._recurrent_N, self._use_orthogonal)
@@ -318,6 +325,14 @@ class R_CNNActor(nn.Module):
         actor_features_from_fc = self.FCbase(obs_for_fc)
         # concat and merge
         actor_features = self.MergeLayer(torch.cat([actor_features_from_cnn, actor_features_from_fc],dim=1))
+
+        actor_features = actor_features.reshape(-1, self.num_agents, self.hidden_size)
+
+        actor_features = self.PositionEncoder(actor_features)+actor_features
+
+        actor_features = self.AttenLayer(actor_features, actor_features, actor_features)
+
+        actor_features = actor_features.reshape(-1, self.hidden_size)
         # rnn layer
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
@@ -357,6 +372,14 @@ class R_CNNActor(nn.Module):
         # concat and merge
         actor_features = self.MergeLayer(torch.cat([actor_features_from_cnn, actor_features_from_fc],dim=1))
 
+        actor_features = actor_features.reshape(-1, self.num_agents, self.hidden_size)
+
+        actor_features = self.PositionEncoder(actor_features)+actor_features
+
+        actor_features = self.AttenLayer(actor_features, actor_features, actor_features)
+
+        actor_features = actor_features.reshape(-1, self.hidden_size)
+
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
 
@@ -382,7 +405,7 @@ class CNNActorAndCritic(nn.Module):
         self.FCbase = MLPBase(args, input_size=size_for_fc, layer_N= 3, hidden_size=self.hidden_size)
         self.CNNbase = CNNBase(args,  self.num_channel, self.obs_height)
 
-        self.actor = R_CNNActor(args,self.CNNbase,self.FCbase, obs_space, action_space, device=device)
+        self.actor = R_CNNActor(args,self.CNNbase,self.FCbase, obs_space, action_space, cent_obs_space, device=device)
         self.critic = R_CNNCritic(args,self.CNNbase,self.FCbase, obs_space, cent_obs_space, device=device)
 
         self.to(device)
